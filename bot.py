@@ -12,7 +12,7 @@ from datetime import datetime
 import asyncssh
 import httpx
 from dotenv import load_dotenv
-from pyrogram import Client, filters
+from pyrogram import Client, filters, idle
 from pyrogram.errors import FloodWait, MessageNotModified
 from pyrogram.types import (
     CallbackQuery,
@@ -1190,10 +1190,11 @@ async def notify_startup() -> None:
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 async def main():
-    async with app:
-        await notify_startup()
-        print("[bot] running")
-        await asyncio.Event().wait()
+    await app.start()
+    await notify_startup()
+    print("[bot] running")
+    await idle()
+    await app.stop()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app.run(main())
