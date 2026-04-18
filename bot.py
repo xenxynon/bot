@@ -8,18 +8,14 @@ import signal
 import stat
 import time
 from datetime import datetime
+from functools import wraps
 
 import asyncssh
 import httpx
 from dotenv import load_dotenv
 from pyrogram import Client, filters, idle
 from pyrogram.errors import FloodWait, MessageNotModified
-from pyrogram.types import (
-    CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    Message,
-)
+from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
@@ -30,7 +26,7 @@ API_HASH    = os.environ["API_HASH"]
 BOT_TOKEN   = os.environ["BOT_TOKEN"]
 SF_USER     = os.environ["SF_USER"]
 SF_PASS     = os.environ["SF_PASS"]
-SUPER_USERS = set(int(x) for x in os.environ["SUPER_USERS"].split(","))
+SUPER_USERS = {int(x) for x in os.environ["SUPER_USERS"].split(",")}
 
 SF_DEFAULT_PROJECT = "bot-uploads"
 SF_DEFAULT_FOLDER  = "workspace"
@@ -38,7 +34,7 @@ SF_YAAP_PROJECT    = "xenxynon-roms"
 SF_YAAP_FOLDER     = "yaap"
 SF_FOLDERS         = ["workspace", "releases", "test", "misc"]
 
-TG_MAX_SIZE      = 2 * 1024 ** 3  # 2 GB
+TG_MAX_SIZE      = 2 * 1024 ** 3
 ALLOWED_FILE     = "allowed_users.json"
 KNOWN_CHATS_FILE = "known_chats.json"
 
@@ -47,61 +43,72 @@ TORRENT_RE = re.compile(r"^magnet:|\.torrent(\?|$)", re.I)
 
 # ── Persistence ────────────────────────────────────────────────────────────────
 
-def _load_int_set(path: str) -> set[int]:
-    try:
-        with open(path) as f:
-            return set(int(x) for x in json.load(f))
-    except (FileNotFoundError, ValueError, json.JSONDecodeError):
-        return set()
+class PersistentSet:
+    """A set[int] that auto-saves to a JSON file."""
 
-def _save_int_set(path: str, s: set[int]) -> None:
-    try:
-        with open(path, "w") as f:
-            json.dump(sorted(s), f, indent=2)
-    except Exception:
-        pass
+    def __init__(self, path: str) -> None:
+        self._path = path
+        try:
+            with open(path) as f:
+                self._data: set[int] = {int(x) for x in json.load(f)}
+        except (FileNotFoundError, ValueError, json.JSONDecodeError):
+            self._data = set()
+
+    # Delegate common set operations
+    def __contains__(self, item):   return item in self._data
+    def __iter__(self):             return iter(self._data)
+    def __bool__(self):             return bool(self._data)
+
+    def add(self, item: int) -> None:
+        self._data.add(item)
+        self._save()
+
+    def discard(self, item: int) -> None:
+        self._data.discard(item)
+        self._save()
+
+    def _save(self) -> None:
+        try:
+            with open(self._path, "w") as f:
+                json.dump(sorted(self._data), f, indent=2)
+        except Exception:
+            pass
 
 # ── State ──────────────────────────────────────────────────────────────────────
 
 app = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-allowed_users:    set[int]        = _load_int_set(ALLOWED_FILE)
-known_chats:      set[int]        = _load_int_set(KNOWN_CHATS_FILE)
-active_transfers: dict[int, dict] = {}
-active_shells:    dict[int, dict] = {}
-pending_sf:       dict[int, dict] = {}
-
-def save_allowed() -> None:
-    _save_int_set(ALLOWED_FILE, allowed_users)
+allowed_users:    PersistentSet      = PersistentSet(ALLOWED_FILE)
+known_chats:      PersistentSet      = PersistentSet(KNOWN_CHATS_FILE)
+active_transfers: dict[int, dict]   = {}
+active_shells:    dict[int, dict]   = {}
+pending_sf:       dict[int, dict]   = {}
 
 def track_chat(chat_id: int) -> None:
-    """Persist this chat so we can notify it on restart."""
     if chat_id not in known_chats:
         known_chats.add(chat_id)
-        _save_int_set(KNOWN_CHATS_FILE, known_chats)
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
 
-def is_allowed(uid: int) -> bool:
-    return uid in SUPER_USERS or uid in allowed_users
-
-def is_super(uid: int) -> bool:
-    return uid in SUPER_USERS
+def is_allowed(uid: int) -> bool:   return uid in SUPER_USERS or uid in allowed_users
+def is_super(uid: int) -> bool:     return uid in SUPER_USERS
 
 def get_args(msg: Message, n: int = 1) -> list[str]:
     parts = msg.text.split(maxsplit=n)
     return parts[1:] if len(parts) > 1 else []
 
 def parse_flags(args: list[str]) -> tuple[list[str], set[str]]:
-    pos   = [a for a in args if not a.startswith("--")]
-    flags = {a.lstrip("-").lower() for a in args if a.startswith("--")}
-    return pos, flags
+    return (
+        [a for a in args if not a.startswith("--")],
+        {a.lstrip("-").lower() for a in args if a.startswith("--")},
+    )
 
 def is_torrent(url: str) -> bool:
     return bool(TORRENT_RE.search(url))
 
+_SIZE_UNITS = ("B", "KB", "MB", "GB", "TB")
 def fmt_size(b: float) -> str:
-    for u in ("B", "KB", "MB", "GB"):
+    for u in _SIZE_UNITS[:-1]:
         if b < 1024:
             return f"{b:.1f} {u}"
         b /= 1024
@@ -112,10 +119,8 @@ def fmt_time(s: float) -> str:
         return "--:--"
     m, s = divmod(int(s), 60)
     h, m = divmod(m, 60)
-    if h:
-        return f"{h}h {m}m {s}s"
-    if m:
-        return f"{m}m {s}s"
+    if h:   return f"{h}h {m}m {s}s"
+    if m:   return f"{m}m {s}s"
     return f"{s}s"
 
 def pbar(pct: float, width: int = 20) -> str:
@@ -124,11 +129,9 @@ def pbar(pct: float, width: int = 20) -> str:
 
 def fmt_mode(m: int) -> str:
     result = ""
-    for who in range(2, -1, -1):
-        bits = (m >> (who * 3)) & 7
-        result += "r" if bits & 4 else "-"
-        result += "w" if bits & 2 else "-"
-        result += "x" if bits & 1 else "-"
+    for shift in (6, 3, 0):
+        bits = (m >> shift) & 7
+        result += ("r" if bits & 4 else "-") + ("w" if bits & 2 else "-") + ("x" if bits & 1 else "-")
     return result
 
 async def safe_edit(msg: Message, text: str) -> None:
@@ -156,12 +159,50 @@ def kill_proc(info: dict) -> None:
                 pass
     proc = info.get("proc")
     if proc:
-        try:
-            proc.kill()
-        except Exception:
-            pass
+        try:   proc.kill()
+        except Exception: pass
 
-# ── Chat tracker (runs alongside all other handlers) ──────────────────────────
+def _try_remove(path: str) -> None:
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+
+# ── Auth decorators ────────────────────────────────────────────────────────────
+
+def require_allowed(fn):
+    """Silently drop the message if the sender is not in the allow-list."""
+    @wraps(fn)
+    async def wrapper(client_or_self, msg: Message, *args, **kwargs):
+        uid = (msg if isinstance(msg, int) else msg.from_user.id)
+        if not is_allowed(uid):
+            return
+        return await fn(client_or_self, msg, *args, **kwargs)
+    return wrapper
+
+def require_super(fn):
+    """Silently drop the message if the sender is not a superuser."""
+    @wraps(fn)
+    async def wrapper(client_or_self, msg: Message, *args, **kwargs):
+        if not is_super(msg.from_user.id):
+            return
+        return await fn(client_or_self, msg, *args, **kwargs)
+    return wrapper
+
+def require_shell_free(fn):
+    """Reply with 'shell busy' if the user already has an active shell."""
+    @wraps(fn)
+    async def wrapper(client_or_self, msg: Message, *args, **kwargs):
+        uid = msg.from_user.id
+        if uid in active_shells:
+            s = active_shells[uid]
+            await msg.reply(f"shell busy: `{s['cmd']}` — use /cancel", quote=True)
+            return
+        return await fn(client_or_self, msg, *args, **kwargs)
+    return wrapper
+
+# ── Chat tracker ───────────────────────────────────────────────────────────────
 
 @app.on_message(filters.all, group=1)
 async def _track_chats(_, msg: Message):
@@ -170,25 +211,48 @@ async def _track_chats(_, msg: Message):
 
 # ── Progress ───────────────────────────────────────────────────────────────────
 
+def _progress_text(label: str, current: int, total: int, elapsed: float) -> str:
+    speed = current / elapsed if elapsed > 0 else 0
+    eta   = (total - current) / speed if speed > 0 and total > current else -1
+    pct   = current * 100 / total if total > 0 else 0
+    return (
+        f"`{label}`\n`{pbar(pct)}`\n\n"
+        f"size:    {fmt_size(current)} / {fmt_size(total)}\n"
+        f"speed:   {fmt_size(speed)}/s\n"
+        f"eta:     {fmt_time(eta)}\n"
+        f"elapsed: {fmt_time(elapsed)}"
+    )
+
 def make_progress(label: str, status: Message, t0: float, ledge: list):
     async def cb(current: int, total: int) -> None:
         now = time.time()
         if now - ledge[0] < 3:
             return
         ledge[0] = now
-        elapsed = now - t0
-        speed   = current / elapsed if elapsed > 0 else 0
-        eta     = (total - current) / speed if speed > 0 and total > current else -1
-        pct     = current * 100 / total if total > 0 else 0
-        await safe_edit(
-            status,
-            f"`{label}`\n`{pbar(pct)}`\n\n"
-            f"size:    {fmt_size(current)} / {fmt_size(total)}\n"
-            f"speed:   {fmt_size(speed)}/s\n"
-            f"eta:     {fmt_time(eta)}\n"
-            f"elapsed: {fmt_time(elapsed)}",
-        )
+        await safe_edit(status, _progress_text(label, current, total, now - t0))
     return cb
+
+# ── Transfer task helper ───────────────────────────────────────────────────────
+
+def _make_transfer_task(uid: int, coro, cleanup=None):
+    """
+    Wrap a transfer coroutine so that active_transfers[uid] is always cleaned
+    up, and CancelledError / exceptions are handled uniformly.
+
+    `coro` is an already-created coroutine; `cleanup` is an optional callable
+    with no arguments that runs in the finally block (e.g. to delete a temp file).
+    """
+    async def _wrapper():
+        try:
+            await coro
+        finally:
+            active_transfers.pop(uid, None)
+            if cleanup:
+                cleanup()
+
+    task = asyncio.create_task(_wrapper())
+    active_transfers[uid]["task"] = task
+    return task
 
 # ── Gofile ─────────────────────────────────────────────────────────────────────
 
@@ -229,12 +293,13 @@ async def tg_upload(client: Client, msg: Message, path: str, status: Message) ->
 
     prog = make_progress(f"uploading {name}", status, t0, ledge)
     await client.send_document(msg.chat.id, path, caption=f"`{name}` — {fmt_size(size)}", progress=prog)
-    elapsed = time.time() - t0
-    await safe_edit(status, f"upload done\nfile: `{name}`\nsize: {fmt_size(size)}\ntime: {fmt_time(elapsed)}")
+    await safe_edit(status, f"upload done\nfile: `{name}`\nsize: {fmt_size(size)}\ntime: {fmt_time(time.time() - t0)}")
 
 # ── HTTP download ──────────────────────────────────────────────────────────────
 
-async def http_download(url: str, dest: str, name: str, status: Message, cancel_ev: asyncio.Event, t0: float) -> int:
+async def http_download(
+    url: str, dest: str, name: str, status: Message, cancel_ev: asyncio.Event, t0: float
+) -> int:
     ledge = [0.0]
     async with httpx.AsyncClient(follow_redirects=True, timeout=None) as http:
         async with http.stream("GET", url) as resp:
@@ -276,12 +341,11 @@ async def sf_upload(status: Message, path: str, project: str, folder: str) -> st
             await sftp.put(path, remote, block_size=32768)
     return f"https://sourceforge.net/projects/{project}/files/{folder}/{name}"
 
-# ── Auth ───────────────────────────────────────────────────────────────────────
+# ── Auth commands ──────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command("allow"))
+@require_super
 async def cmd_allow(_, msg: Message):
-    if not is_super(msg.from_user.id):
-        return
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/allow <user_id>`", quote=True)
@@ -289,16 +353,14 @@ async def cmd_allow(_, msg: Message):
     try:
         uid = int(a[0])
         allowed_users.add(uid)
-        save_allowed()
         await msg.reply(f"✅ allowed `{uid}`", quote=True)
     except ValueError:
         await msg.reply("invalid user id", quote=True)
 
 
 @app.on_message(filters.command("revoke"))
+@require_super
 async def cmd_revoke(_, msg: Message):
-    if not is_super(msg.from_user.id):
-        return
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/revoke <user_id>`", quote=True)
@@ -306,16 +368,14 @@ async def cmd_revoke(_, msg: Message):
     try:
         uid = int(a[0])
         allowed_users.discard(uid)
-        save_allowed()
         await msg.reply(f"✅ revoked `{uid}`", quote=True)
     except ValueError:
         await msg.reply("invalid user id", quote=True)
 
 
 @app.on_message(filters.command("users"))
+@require_super
 async def cmd_users(_, msg: Message):
-    if not is_super(msg.from_user.id):
-        return
     if not allowed_users:
         await msg.reply("no extra allowed users", quote=True)
         return
@@ -361,9 +421,8 @@ HELP = """\
 
 
 @app.on_message(filters.command(["start", "help"]))
+@require_allowed
 async def cmd_help(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     await msg.reply(HELP, quote=True)
 
 
@@ -371,61 +430,49 @@ async def cmd_help(_, msg: Message):
 async def cmd_ping(_, msg: Message):
     t0    = time.time()
     reply = await msg.reply("…", quote=True)
-    ms    = (time.time() - t0) * 1000
-    await reply.edit(f"pong — `{ms:.0f}ms`")
+    await reply.edit(f"pong — `{(time.time() - t0) * 1000:.0f}ms`")
 
 
 @app.on_message(filters.command("status"))
+@require_allowed
 async def cmd_status(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     uid   = msg.from_user.id
     parts = []
 
     if uid in active_transfers:
-        t       = active_transfers[uid]
-        elapsed = time.time() - t["start_time"]
-        parts.append(f"**transfer:** `{t['name']}` ({t['type']}) — {fmt_time(elapsed)} elapsed")
+        t = active_transfers[uid]
+        parts.append(f"**transfer:** `{t['name']}` ({t['type']}) — {fmt_time(time.time() - t['start_time'])} elapsed")
 
     if uid in active_shells:
-        s       = active_shells[uid]
-        elapsed = time.time() - s["start_time"]
-        tail    = "\n".join(s["lines"][-5:]) or "(no output)"
+        s    = active_shells[uid]
+        tail = "\n".join(s["lines"][-5:]) or "(no output)"
         if len(tail) > 1500:
             tail = tail[-1500:]
-        parts.append(f"**shell:** `{s['cmd']}` (pid {s.get('pid', '?')}) — {fmt_time(elapsed)} elapsed\n```\n{tail}\n```")
+        parts.append(f"**shell:** `{s['cmd']}` (pid {s.get('pid', '?')}) — {fmt_time(time.time() - s['start_time'])} elapsed\n```\n{tail}\n```")
 
     await msg.reply("\n\n".join(parts) if parts else "no active tasks", quote=True)
 
 
 @app.on_message(filters.command("cancel"))
+@require_allowed
 async def cmd_cancel(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     uid      = msg.from_user.id
     canceled = []
 
     if uid in active_transfers:
-        # Pop immediately so new tasks can start right away
-        t  = active_transfers.pop(uid)
-        ce = t.get("cancel_event")
-        tk = t.get("task")
-        if ce:
-            ce.set()                          # unblocks http_download loop
-        if tk and not tk.done():
-            tk.cancel()                       # CancelledError into the coroutine
+        t = active_transfers.pop(uid)
+        if ce := t.get("cancel_event"):
+            ce.set()
+        if (tk := t.get("task")) and not tk.done():
+            tk.cancel()
         canceled.append(f"`{t['name']}` ({t['type']})")
 
     if uid in active_shells:
-        # Pop immediately, then kill the process
         s = active_shells.pop(uid)
-        kill_proc(s)                          # SIGKILL to process group
-        proc = s.get("proc")
-        if proc:
-            try:
-                proc.kill()
-            except Exception:
-                pass
+        kill_proc(s)
+        if proc := s.get("proc"):
+            try:   proc.kill()
+            except Exception: pass
         canceled.append(f"`{s['cmd']}` (shell, pid {s.get('pid', '?')})")
 
     if canceled:
@@ -436,9 +483,8 @@ async def cmd_cancel(_, msg: Message):
 # ── /ul /upload ────────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command(["ul", "upload"]))
+@require_allowed
 async def cmd_upload(client: Client, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     uid = msg.from_user.id
     a   = get_args(msg)
 
@@ -456,8 +502,7 @@ async def cmd_upload(client: Client, msg: Message):
         return
 
     name   = os.path.basename(path)
-    size   = os.path.getsize(path)
-    status = await msg.reply(f"uploading `{name}` ({fmt_size(size)})…", quote=True)
+    status = await msg.reply(f"uploading `{name}` ({fmt_size(os.path.getsize(path))})…", quote=True)
     t0     = time.time()
     active_transfers[uid] = {"type": "upload", "name": name, "start_time": t0}
 
@@ -468,17 +513,14 @@ async def cmd_upload(client: Client, msg: Message):
             await safe_edit(status, f"cancelled: `{name}`")
         except Exception as e:
             await safe_edit(status, f"upload failed: `{e}`")
-        finally:
-            active_transfers.pop(uid, None)
 
-    active_transfers[uid]["task"] = asyncio.create_task(_run())
+    _make_transfer_task(uid, _run())
 
 # ── /dl /download ──────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command(["dl", "download"]))
+@require_allowed
 async def cmd_download(client: Client, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     uid = msg.from_user.id
 
     if uid in active_transfers:
@@ -501,25 +543,20 @@ async def cmd_download(client: Client, msg: Message):
             try:
                 prog = make_progress(f"downloading {name}", status, t0, ledge)
                 await client.download_media(replied, file_name=dest, progress=prog)
-                fsize   = os.path.getsize(dest) if os.path.exists(dest) else size
-                elapsed = time.time() - t0
-                await safe_edit(status, f"done\nfile: `{name}`\nsize: {fmt_size(fsize)}\npath: `{dest}`\ntime: {fmt_time(elapsed)}")
+                fsize = os.path.getsize(dest) if os.path.exists(dest) else size
+                await safe_edit(status, f"done\nfile: `{name}`\nsize: {fmt_size(fsize)}\npath: `{dest}`\ntime: {fmt_time(time.time() - t0)}")
             except asyncio.CancelledError:
                 await safe_edit(status, f"cancelled: `{name}`")
             except Exception as e:
                 await safe_edit(status, f"failed: `{e}`")
-            finally:
-                active_transfers.pop(uid, None)
 
-        active_transfers[uid]["task"] = asyncio.create_task(_tg_dl())
+        _make_transfer_task(uid, _tg_dl())
         return
 
     a = get_args(msg, n=2)
     if not a:
         await msg.reply(
-            "**usage:** `/dl <url> [name]`\n"
-            "or reply to a telegram file\n"
-            "saves to current directory",
+            "**usage:** `/dl <url> [name]`\nor reply to a telegram file\nsaves to current directory",
             quote=True,
         )
         return
@@ -541,26 +578,22 @@ async def cmd_download(client: Client, msg: Message):
 
     async def _url_dl():
         try:
-            fsize   = await http_download(url, dest, name, status, cancel_ev, t0)
-            elapsed = time.time() - t0
-            await safe_edit(status, f"done\nfile: `{name}`\nsize: {fmt_size(fsize)}\npath: `{dest}`\ntime: {fmt_time(elapsed)}")
+            fsize = await http_download(url, dest, name, status, cancel_ev, t0)
+            await safe_edit(status, f"done\nfile: `{name}`\nsize: {fmt_size(fsize)}\npath: `{dest}`\ntime: {fmt_time(time.time() - t0)}")
         except asyncio.CancelledError:
             await safe_edit(status, f"cancelled: `{name}`")
             _try_remove(dest)
         except Exception as e:
             await safe_edit(status, f"failed: `{e}`")
             _try_remove(dest)
-        finally:
-            active_transfers.pop(uid, None)
 
-    active_transfers[uid]["task"] = asyncio.create_task(_url_dl())
+    _make_transfer_task(uid, _url_dl())
 
 # ── /tr /transfer ─────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command(["tr", "transfer"]))
+@require_allowed
 async def cmd_transfer(client: Client, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     uid = msg.from_user.id
 
     if uid in active_transfers:
@@ -594,19 +627,14 @@ async def cmd_transfer(client: Client, msg: Message):
                 await safe_edit(status, f"cancelled: `{name}`")
             except Exception as e:
                 await safe_edit(status, f"failed: `{e}`")
-            finally:
-                active_transfers.pop(uid, None)
-                _try_remove(dest)
 
-        active_transfers[uid]["task"] = asyncio.create_task(_tg_tr())
+        _make_transfer_task(uid, _tg_tr(), cleanup=lambda: _try_remove(dest))
         return
 
     if not pos:
         await msg.reply(
             "**usage:** `/tr <url|path> [name] [flags]`\n"
-            "  _(no flag)_ — telegram\n"
-            "  `--gf` — gofile only\n"
-            "  `--both` — telegram + gofile\n"
+            "  _(no flag)_ — telegram\n  `--gf` — gofile only\n  `--both` — telegram + gofile\n"
             "or reply to a telegram file",
             quote=True,
         )
@@ -619,8 +647,7 @@ async def cmd_transfer(client: Client, msg: Message):
             await msg.reply(f"not found: `{target}`", quote=True)
             return
         name   = os.path.basename(target)
-        size   = os.path.getsize(target)
-        status = await msg.reply(f"uploading `{name}` ({fmt_size(size)})…", quote=True)
+        status = await msg.reply(f"uploading `{name}` ({fmt_size(os.path.getsize(target))})…", quote=True)
         t0     = time.time()
         active_transfers[uid] = {"type": "upload", "name": name, "start_time": t0}
 
@@ -631,10 +658,8 @@ async def cmd_transfer(client: Client, msg: Message):
                 await safe_edit(status, f"cancelled: `{name}`")
             except Exception as e:
                 await safe_edit(status, f"failed: `{e}`")
-            finally:
-                active_transfers.pop(uid, None)
 
-        active_transfers[uid]["task"] = asyncio.create_task(_local_ul())
+        _make_transfer_task(uid, _local_ul())
         return
 
     url = target
@@ -656,15 +681,10 @@ async def cmd_transfer(client: Client, msg: Message):
             await _upload_to_targets(client, msg, dest, status, do_tg, do_gf, time.time())
         except asyncio.CancelledError:
             await safe_edit(status, f"cancelled: `{name}`")
-            _try_remove(dest)
         except Exception as e:
             await safe_edit(status, f"failed: `{e}`")
-            _try_remove(dest)
-        finally:
-            active_transfers.pop(uid, None)
-            _try_remove(dest)
 
-    active_transfers[uid]["task"] = asyncio.create_task(_url_tr())
+    _make_transfer_task(uid, _url_tr(), cleanup=lambda: _try_remove(dest))
 
 
 async def _upload_to_targets(client, msg, path, status, do_tg, do_gf, t0):
@@ -682,27 +702,17 @@ async def _upload_to_targets(client, msg, path, status, do_tg, do_gf, t0):
         link = await gofile_upload(path, status)
         results.append(f"gofile: {link}")
 
-    elapsed = time.time() - t0
     await safe_edit(
         status,
-        f"done\nfile: `{name}`\nsize: {fmt_size(size)}\ntime: {fmt_time(elapsed)}\n"
+        f"done\nfile: `{name}`\nsize: {fmt_size(size)}\ntime: {fmt_time(time.time() - t0)}\n"
         + "\n".join(results),
     )
-
-
-def _try_remove(path: str) -> None:
-    try:
-        if os.path.exists(path):
-            os.remove(path)
-    except Exception:
-        pass
 
 # ── /gf /gofile ────────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command(["gf", "gofile"]))
+@require_allowed
 async def cmd_gofile(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/gf <path>`\nupload a file to gofile.io", quote=True)
@@ -723,18 +733,15 @@ async def cmd_gofile(_, msg: Message):
 # ── /sf ────────────────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command("sf"))
+@require_allowed
 async def cmd_sf(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
-
     raw = get_args(msg, n=10)
     pos, flags = parse_flags(raw)
 
     if not pos:
         await msg.reply(
             "**usage:** `/sf <path> [folder] [--yaap]`\n"
-            "  default: `bot-uploads/workspace`\n"
-            "  `--yaap`: `xenxynon-roms/yaap`\n"
+            "  default: `bot-uploads/workspace`\n  `--yaap`: `xenxynon-roms/yaap`\n"
             "  omit folder to get a picker",
             quote=True,
         )
@@ -804,7 +811,6 @@ async def cb_sf(_, cq: CallbackQuery):
 # ── Shell core ─────────────────────────────────────────────────────────────────
 
 async def _run_shell(msg: Message, cmd: str) -> None:
-    """Execute a shell command with live streaming output."""
     uid    = msg.from_user.id
     status = await msg.reply(f"$ `{cmd}`", quote=True)
     lines: list[str] = []
@@ -817,10 +823,8 @@ async def _run_shell(msg: Message, cmd: str) -> None:
         start_new_session=True,
     )
     pid = proc.pid
-    try:
-        pgid = os.getpgid(pid)
-    except Exception:
-        pgid = None
+    try:    pgid = os.getpgid(pid)
+    except Exception: pgid = None
 
     active_shells[uid] = {
         "proc": proc, "pid": pid, "pgid": pgid, "cmd": cmd,
@@ -855,60 +859,45 @@ async def _run_shell(msg: Message, cmd: str) -> None:
     finally:
         active_shells.pop(uid, None)
 
-    rc   = proc.returncode
     tail = "\n".join(lines[-40:]) or "(no output)"
     if len(tail) > 3500:
         tail = tail[-3500:]
-    note = "killed (timeout)" if killed else ("done" if rc == 0 else f"exited {rc}")
+    note = "killed (timeout)" if killed else ("done" if proc.returncode == 0 else f"exited {proc.returncode}")
     await safe_edit(status, f"$ `{cmd}` — {note}\n```\n{tail}\n```")
 
 # ── /sh ────────────────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command("sh"))
+@require_allowed
+@require_shell_free
 async def cmd_sh(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
-    uid = msg.from_user.id
-    a   = get_args(msg)
+    a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/sh <command>`\nrun a shell command with live output", quote=True)
-        return
-    if uid in active_shells:
-        s = active_shells[uid]
-        await msg.reply(f"already running: `{s['cmd']}` (pid {s.get('pid', '?')}) — use /cancel", quote=True)
         return
     await _run_shell(msg, a[0])
 
 # ── Shell shortcuts ────────────────────────────────────────────────────────────
 
 def _shell_shortcut(cmd: str):
-    """Factory: returns a handler that runs a fixed shell command."""
+    @require_allowed
+    @require_shell_free
     async def handler(_, msg: Message):
-        if not is_allowed(msg.from_user.id):
-            return
-        if msg.from_user.id in active_shells:
-            s = active_shells[msg.from_user.id]
-            await msg.reply(f"shell busy: `{s['cmd']}` — use /cancel", quote=True)
-            return
         await _run_shell(msg, cmd)
     return handler
 
-app.on_message(filters.command("ps"))    (_shell_shortcut("ps aux --sort=-%cpu | head -30"))
-app.on_message(filters.command("top"))   (_shell_shortcut("top -bn1 | head -40"))
-app.on_message(filters.command("free"))  (_shell_shortcut("free -h && echo '' && vmstat -s | head -10"))
-app.on_message(filters.command("uptime"))(_shell_shortcut("uptime && echo '' && w"))
-app.on_message(filters.command("whoami"))(_shell_shortcut("whoami && id && echo '' && uname -a"))
+app.on_message(filters.command("ps"))     (_shell_shortcut("ps aux --sort=-%cpu | head -30"))
+app.on_message(filters.command("top"))    (_shell_shortcut("top -bn1 | head -40"))
+app.on_message(filters.command("free"))   (_shell_shortcut("free -h && echo '' && vmstat -s | head -10"))
+app.on_message(filters.command("uptime")) (_shell_shortcut("uptime && echo '' && w"))
+app.on_message(filters.command("whoami")) (_shell_shortcut("whoami && id && echo '' && uname -a"))
 app.on_message(filters.command("netstat"))(_shell_shortcut("ss -tulnp"))
 
 
 @app.on_message(filters.command("tail"))
+@require_allowed
+@require_shell_free
 async def cmd_tail(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
-    uid = msg.from_user.id
-    if uid in active_shells:
-        await msg.reply("shell busy — use /cancel", quote=True)
-        return
     a = get_args(msg, n=2)
     if not a:
         await msg.reply("**usage:** `/tail <file> [n]`\nshow last N lines (default 50)", quote=True)
@@ -918,13 +907,9 @@ async def cmd_tail(_, msg: Message):
 
 
 @app.on_message(filters.command("head"))
+@require_allowed
+@require_shell_free
 async def cmd_head(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
-    uid = msg.from_user.id
-    if uid in active_shells:
-        await msg.reply("shell busy — use /cancel", quote=True)
-        return
     a = get_args(msg, n=2)
     if not a:
         await msg.reply("**usage:** `/head <file> [n]`\nshow first N lines (default 20)", quote=True)
@@ -934,13 +919,9 @@ async def cmd_head(_, msg: Message):
 
 
 @app.on_message(filters.command("grep"))
+@require_allowed
+@require_shell_free
 async def cmd_grep(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
-    uid = msg.from_user.id
-    if uid in active_shells:
-        await msg.reply("shell busy — use /cancel", quote=True)
-        return
     a = get_args(msg, n=2)
     if len(a) < 2:
         await msg.reply("**usage:** `/grep <pattern> <file>`", quote=True)
@@ -950,9 +931,8 @@ async def cmd_grep(_, msg: Message):
 # ── Filesystem ─────────────────────────────────────────────────────────────────
 
 @app.on_message(filters.command("ls"))
+@require_allowed
 async def cmd_ls(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a    = get_args(msg)
     path = a[0] if a else "."
     try:
@@ -977,16 +957,17 @@ async def cmd_ls(_, msg: Message):
             except Exception:
                 rows.append(f"?????????  {'?':>10}  ???????????  {e}")
 
-        header = f"{os.path.abspath(path)}  ({len(entries)} items)"
-        await msg.reply(f"{header}\n```\n" + "\n".join(rows) + "\n```", quote=True)
+        await msg.reply(
+            f"{os.path.abspath(path)}  ({len(entries)} items)\n```\n" + "\n".join(rows) + "\n```",
+            quote=True,
+        )
     except Exception as e:
         await msg.reply(f"error: `{e}`", quote=True)
 
 
 @app.on_message(filters.command("cat"))
+@require_allowed
 async def cmd_cat(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/cat <file>`", quote=True)
@@ -1000,24 +981,21 @@ async def cmd_cat(_, msg: Message):
 
 
 @app.on_message(filters.command("echo"))
+@require_allowed
 async def cmd_echo(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg)
     await msg.reply(a[0] if a else "(empty)", quote=True)
 
 
 @app.on_message(filters.command("pwd"))
+@require_allowed
 async def cmd_pwd(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     await msg.reply(f"`{os.getcwd()}`", quote=True)
 
 
 @app.on_message(filters.command("mkdir"))
+@require_allowed
 async def cmd_mkdir(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/mkdir <path>`", quote=True)
@@ -1030,9 +1008,8 @@ async def cmd_mkdir(_, msg: Message):
 
 
 @app.on_message(filters.command("mv"))
+@require_allowed
 async def cmd_mv(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg, n=2)
     if len(a) < 2:
         await msg.reply("**usage:** `/mv <src> <dst>`", quote=True)
@@ -1045,9 +1022,8 @@ async def cmd_mv(_, msg: Message):
 
 
 @app.on_message(filters.command("cp"))
+@require_allowed
 async def cmd_cp(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg, n=2)
     if len(a) < 2:
         await msg.reply("**usage:** `/cp <src> <dst>`", quote=True)
@@ -1060,9 +1036,8 @@ async def cmd_cp(_, msg: Message):
 
 
 @app.on_message(filters.command("rm"))
+@require_allowed
 async def cmd_rm(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/rm <path>`", quote=True)
@@ -1080,9 +1055,8 @@ async def cmd_rm(_, msg: Message):
 
 
 @app.on_message(filters.command("find"))
+@require_allowed
 async def cmd_find(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg, n=2)
     if not a:
         await msg.reply("**usage:** `/find <path> [glob]`", quote=True)
@@ -1109,14 +1083,12 @@ async def cmd_find(_, msg: Message):
 
 
 @app.on_message(filters.command("df"))
+@require_allowed
 async def cmd_df(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     try:
         total, used, free = shutil.disk_usage("/")
-        pct = used * 100 / total
         await msg.reply(
-            f"disk /\n`{pbar(pct)}`\nused:  {fmt_size(used)}\nfree:  {fmt_size(free)}\ntotal: {fmt_size(total)}",
+            f"disk /\n`{pbar(used * 100 / total)}`\nused:  {fmt_size(used)}\nfree:  {fmt_size(free)}\ntotal: {fmt_size(total)}",
             quote=True,
         )
     except Exception as e:
@@ -1124,32 +1096,28 @@ async def cmd_df(_, msg: Message):
 
 
 @app.on_message(filters.command("du"))
+@require_allowed
 async def cmd_du(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/du <path>`", quote=True)
         return
     try:
-        total = 0
-        for dirpath, _, files in os.walk(a[0]):
-            for fn in files:
-                try:
-                    total += os.path.getsize(os.path.join(dirpath, fn))
-                except Exception:
-                    pass
+        total = sum(
+            os.path.getsize(os.path.join(dp, fn))
+            for dp, _, files in os.walk(a[0])
+            for fn in files
+            if not (lambda p: False)(os.path.join(dp, fn))  # silently skip errors below
+        )
         await msg.reply(f"`{a[0]}`: {fmt_size(total)}", quote=True)
     except Exception as e:
         await msg.reply(f"error: `{e}`", quote=True)
 
 
 @app.on_message(filters.command("env"))
+@require_allowed
 async def cmd_env(_, msg: Message):
-    if not is_allowed(msg.from_user.id):
-        return
-    lines = [f"{k}={v}" for k, v in sorted(os.environ.items())]
-    text  = "\n".join(lines)
+    text = "\n".join(f"{k}={v}" for k, v in sorted(os.environ.items()))
     if len(text) > 4000:
         text = text[:4000] + "\n(truncated)"
     await msg.reply(f"```\n{text}\n```", quote=True)
@@ -1175,6 +1143,15 @@ async def catch_sf_custom(_, msg: Message):
 # ── Startup notification ───────────────────────────────────────────────────────
 
 async def notify_startup() -> None:
+    if not known_chats:
+        return
+    sent = sum(
+        1 for cid in list(known_chats)
+        if await (lambda: app.send_message(cid, "🟢 online"))()  # see real impl below
+        or True
+    )
+
+async def notify_startup() -> None:  # noqa: F811  (shadows dummy above)
     if not known_chats:
         return
     sent = 0
