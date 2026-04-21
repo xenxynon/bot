@@ -54,7 +54,6 @@ class PersistentSet:
         except (FileNotFoundError, ValueError, json.JSONDecodeError):
             self._data = set()
 
-    # Delegate common set operations
     def __contains__(self, item):   return item in self._data
     def __iter__(self):             return iter(self._data)
     def __bool__(self):             return bool(self._data)
@@ -172,17 +171,14 @@ def _try_remove(path: str) -> None:
 # ── Auth decorators ────────────────────────────────────────────────────────────
 
 def require_allowed(fn):
-    """Silently drop the message if the sender is not in the allow-list."""
     @wraps(fn)
     async def wrapper(client_or_self, msg: Message, *args, **kwargs):
-        uid = (msg if isinstance(msg, int) else msg.from_user.id)
-        if not is_allowed(uid):
+        if not is_allowed(msg.from_user.id):
             return
         return await fn(client_or_self, msg, *args, **kwargs)
     return wrapper
 
 def require_super(fn):
-    """Silently drop the message if the sender is not a superuser."""
     @wraps(fn)
     async def wrapper(client_or_self, msg: Message, *args, **kwargs):
         if not is_super(msg.from_user.id):
@@ -191,7 +187,6 @@ def require_super(fn):
     return wrapper
 
 def require_shell_free(fn):
-    """Reply with 'shell busy' if the user already has an active shell."""
     @wraps(fn)
     async def wrapper(client_or_self, msg: Message, *args, **kwargs):
         uid = msg.from_user.id
@@ -235,13 +230,6 @@ def make_progress(label: str, status: Message, t0: float, ledge: list):
 # ── Transfer task helper ───────────────────────────────────────────────────────
 
 def _make_transfer_task(uid: int, coro, cleanup=None):
-    """
-    Wrap a transfer coroutine so that active_transfers[uid] is always cleaned
-    up, and CancelledError / exceptions are handled uniformly.
-
-    `coro` is an already-created coroutine; `cleanup` is an optional callable
-    with no arguments that runs in the finally block (e.g. to delete a temp file).
-    """
     async def _wrapper():
         try:
             await coro
@@ -262,19 +250,25 @@ async def gofile_upload(path: str, status: Message) -> str:
     async with httpx.AsyncClient(timeout=30) as http:
         r = await http.get("https://api.gofile.io/servers")
         r.raise_for_status()
-        server = r.json()["data"]["servers"][0]["name"]
-    await safe_edit(status, f"uploading `{name}` to gofile [{server}]…")
-    async with httpx.AsyncClient(timeout=None) as http:
-        with open(path, "rb") as f:
-            r = await http.post(
-                f"https://{server}.gofile.io/contents/uploadfile",
-                files={"file": (name, f)},
-            )
-        r.raise_for_status()
-        data = r.json()
-    if data.get("status") != "ok":
-        raise RuntimeError(str(data))
-    return data["data"]["downloadPage"]
+        servers = [s["name"] for s in r.json()["data"]["servers"]]
+    last_err = None
+    for server in servers:
+        await safe_edit(status, f"uploading `{name}` to gofile [{server}]…")
+        try:
+            async with httpx.AsyncClient(timeout=None) as http:
+                with open(path, "rb") as f:
+                    r = await http.post(
+                        f"https://{server}.gofile.io/contents/uploadfile",
+                        files={"file": (name, f)},
+                    )
+                r.raise_for_status()
+                data = r.json()
+            if data.get("status") != "ok":
+                raise RuntimeError(str(data))
+            return data["data"]["downloadPage"]
+        except Exception as e:
+            last_err = e
+    raise RuntimeError(f"all gofile servers failed: {last_err}")
 
 # ── TG upload ─────────────────────────────────────────────────────────────────
 
@@ -338,7 +332,7 @@ async def sf_upload(status: Message, path: str, project: str, folder: str) -> st
     await safe_edit(status, f"uploading `{name}` to sourceforge [{project}/{folder}]…")
     async with asyncssh.connect("frs.sourceforge.net", username=SF_USER, password=SF_PASS, known_hosts=None) as conn:
         async with conn.start_sftp_client() as sftp:
-            await sftp.put(path, remote, block_size=32768)
+            await sftp.put(path, remote, block_size=65536)
     return f"https://sourceforge.net/projects/{project}/files/{folder}/{name}"
 
 # ── Auth commands ──────────────────────────────────────────────────────────────
@@ -395,12 +389,13 @@ HELP = """\
 `/cancel` — cancel active transfer or shell
 
 **cloud**
-`/gf /gofile <path>` — upload to gofile
+`/gf /gofile <path>` — upload to gofile.io
 `/sf <path> [folder] [--yaap]` — upload to sourceforge
   default: bot-uploads/workspace  |  `--yaap`: xenxynon-roms/yaap
 
 **shell**
 `/sh <command>` — run command with live output
+`/stdin <text>` — send input to running shell process
 `/ps` — process list  |  `/top` — cpu/mem snapshot
 `/free` — memory  |  `/uptime` — system uptime
 `/whoami` — user + groups  |  `/netstat` — open ports
@@ -772,7 +767,7 @@ async def cmd_sf(_, msg: Message):
         return
 
     uid = msg.from_user.id
-    pending_sf[uid] = {"path": path, "awaiting_custom": False}
+    pending_sf[uid] = {"path": path, "awaiting_custom": False, "ts": time.time()}
     row1 = [InlineKeyboardButton(f, callback_data=f"sf:{f}") for f in SF_FOLDERS[:2]]
     row2 = [InlineKeyboardButton(f, callback_data=f"sf:{f}") for f in SF_FOLDERS[2:]]
     row3 = [InlineKeyboardButton("custom…", callback_data="sf:__custom__")]
@@ -792,10 +787,16 @@ async def cb_sf(_, cq: CallbackQuery):
         await cq.answer("session expired — resend /sf", show_alert=True)
         return
 
+    if time.time() - pending_sf[uid]["ts"] > 300:
+        pending_sf.pop(uid)
+        await cq.answer("session expired — resend /sf", show_alert=True)
+        return
+
     await cq.answer()
 
     if choice == "__custom__":
         pending_sf[uid]["awaiting_custom"] = True
+        pending_sf[uid]["ts"] = time.time()
         await cq.message.edit("send the folder name:")
         return
 
@@ -820,6 +821,7 @@ async def _run_shell(msg: Message, cmd: str) -> None:
         cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
+        stdin=asyncio.subprocess.PIPE,
         start_new_session=True,
     )
     pid = proc.pid
@@ -876,6 +878,30 @@ async def cmd_sh(_, msg: Message):
         await msg.reply("**usage:** `/sh <command>`\nrun a shell command with live output", quote=True)
         return
     await _run_shell(msg, a[0])
+
+# ── /stdin ─────────────────────────────────────────────────────────────────────
+
+@app.on_message(filters.command("stdin"))
+@require_allowed
+async def cmd_stdin(_, msg: Message):
+    uid = msg.from_user.id
+    if uid not in active_shells:
+        await msg.reply("no active shell", quote=True)
+        return
+    a = get_args(msg)
+    if not a:
+        await msg.reply("**usage:** `/stdin <text>`", quote=True)
+        return
+    proc = active_shells[uid].get("proc")
+    if proc and proc.stdin:
+        try:
+            proc.stdin.write((a[0] + "\n").encode())
+            await proc.stdin.drain()
+            await msg.reply("sent", quote=True)
+        except Exception as e:
+            await msg.reply(f"error: `{e}`", quote=True)
+    else:
+        await msg.reply("process stdin not available", quote=True)
 
 # ── Shell shortcuts ────────────────────────────────────────────────────────────
 
@@ -1103,12 +1129,13 @@ async def cmd_du(_, msg: Message):
         await msg.reply("**usage:** `/du <path>`", quote=True)
         return
     try:
-        total = sum(
-            os.path.getsize(os.path.join(dp, fn))
-            for dp, _, files in os.walk(a[0])
-            for fn in files
-            if not (lambda p: False)(os.path.join(dp, fn))  # silently skip errors below
-        )
+        total = 0
+        for dp, _, files in os.walk(a[0]):
+            for fn in files:
+                try:
+                    total += os.path.getsize(os.path.join(dp, fn))
+                except OSError:
+                    pass
         await msg.reply(f"`{a[0]}`: {fmt_size(total)}", quote=True)
     except Exception as e:
         await msg.reply(f"error: `{e}`", quote=True)
@@ -1129,6 +1156,9 @@ async def catch_sf_custom(_, msg: Message):
     uid = msg.from_user.id
     if uid not in pending_sf or not pending_sf[uid].get("awaiting_custom"):
         return
+    if time.time() - pending_sf[uid]["ts"] > 300:
+        pending_sf.pop(uid)
+        return
     folder = msg.text.strip()
     if not folder:
         return
@@ -1143,15 +1173,6 @@ async def catch_sf_custom(_, msg: Message):
 # ── Startup notification ───────────────────────────────────────────────────────
 
 async def notify_startup() -> None:
-    if not known_chats:
-        return
-    sent = sum(
-        1 for cid in list(known_chats)
-        if await (lambda: app.send_message(cid, "🟢 online"))()  # see real impl below
-        or True
-    )
-
-async def notify_startup() -> None:  # noqa: F811  (shadows dummy above)
     if not known_chats:
         return
     sent = 0
