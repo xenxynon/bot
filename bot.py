@@ -1,6 +1,7 @@
 import asyncio
 import fnmatch
 import json
+import logging
 import os
 import re
 import shutil
@@ -21,6 +22,9 @@ from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMa
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+log = logging.getLogger(__name__)
+
 API_ID      = int(os.environ["API_ID"])
 API_HASH    = os.environ["API_HASH"]
 BOT_TOKEN   = os.environ["BOT_TOKEN"]
@@ -37,6 +41,8 @@ SF_FOLDERS         = ["workspace", "releases", "test", "misc"]
 TG_MAX_SIZE      = 2 * 1024 ** 3
 ALLOWED_FILE     = "allowed_users.json"
 KNOWN_CHATS_FILE = "known_chats.json"
+DL_CHUNK_SIZE    = 1024 * 1024  # 1 MB
+PROGRESS_INTERVAL = 3.0         # seconds between progress edits
 
 ANSI_RE    = re.compile(r"\x1b\[[0-9;]*[mKHJA-Za-z]")
 TORRENT_RE = re.compile(r"^magnet:|\.torrent(\?|$)", re.I)
@@ -70,18 +76,18 @@ class PersistentSet:
         try:
             with open(self._path, "w") as f:
                 json.dump(sorted(self._data), f, indent=2)
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("PersistentSet save failed (%s): %s", self._path, e)
 
 # ── State ──────────────────────────────────────────────────────────────────────
 
 app = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-allowed_users:    PersistentSet      = PersistentSet(ALLOWED_FILE)
-known_chats:      PersistentSet      = PersistentSet(KNOWN_CHATS_FILE)
-active_transfers: dict[int, dict]   = {}
-active_shells:    dict[int, dict]   = {}
-pending_sf:       dict[int, dict]   = {}
+allowed_users:    PersistentSet    = PersistentSet(ALLOWED_FILE)
+known_chats:      PersistentSet    = PersistentSet(KNOWN_CHATS_FILE)
+active_transfers: dict[int, dict]  = {}
+active_shells:    dict[int, dict]  = {}
+pending_sf:       dict[int, dict]  = {}
 
 def track_chat(chat_id: int) -> None:
     if chat_id not in known_chats:
@@ -92,8 +98,12 @@ def track_chat(chat_id: int) -> None:
 def is_allowed(uid: int) -> bool:   return uid in SUPER_USERS or uid in allowed_users
 def is_super(uid: int) -> bool:     return uid in SUPER_USERS
 
+def get_text(msg: Message) -> str:
+    """Return message text, falling back to caption for media messages."""
+    return msg.text or msg.caption or ""
+
 def get_args(msg: Message, n: int = 1) -> list[str]:
-    parts = msg.text.split(maxsplit=n)
+    parts = get_text(msg).split(maxsplit=n)
     return parts[1:] if len(parts) > 1 else []
 
 def parse_flags(args: list[str]) -> tuple[list[str], set[str]]:
@@ -127,6 +137,7 @@ def pbar(pct: float, width: int = 20) -> str:
     return f"[{'#' * filled}{'-' * (width - filled)}] {pct:.1f}%"
 
 def fmt_mode(m: int) -> str:
+    """Format permission bits as rwxrwxrwx string."""
     result = ""
     for shift in (6, 3, 0):
         bits = (m >> shift) & 7
@@ -139,7 +150,7 @@ async def safe_edit(msg: Message, text: str) -> None:
     except MessageNotModified:
         pass
     except FloodWait as e:
-        await asyncio.sleep(e.value)
+        await asyncio.sleep(e.value + 1)
         try:
             await msg.edit(text)
         except Exception:
@@ -147,18 +158,36 @@ async def safe_edit(msg: Message, text: str) -> None:
     except Exception:
         pass
 
-def kill_proc(info: dict) -> None:
-    for fn, key in ((os.killpg, "pgid"), (os.kill, "pid")):
-        target = info.get(key)
-        if target:
-            try:
-                fn(target, signal.SIGKILL)
-                return
-            except Exception:
-                pass
+async def kill_proc(info: dict) -> None:
+    """Graceful SIGTERM → brief wait → SIGKILL."""
     proc = info.get("proc")
-    if proc:
-        try:   proc.kill()
+    pgid = info.get("pgid")
+    pid  = info.get("pid")
+
+    def _send(fn, target, sig):
+        try:
+            fn(target, sig)
+        except Exception:
+            pass
+
+    # Try SIGTERM first
+    if pgid:
+        _send(os.killpg, pgid, signal.SIGTERM)
+    elif pid:
+        _send(os.kill, pid, signal.SIGTERM)
+    elif proc:
+        try: proc.terminate()
+        except Exception: pass
+
+    await asyncio.sleep(0.5)
+
+    # Then SIGKILL
+    if pgid:
+        _send(os.killpg, pgid, signal.SIGKILL)
+    elif pid:
+        _send(os.kill, pid, signal.SIGKILL)
+    elif proc:
+        try: proc.kill()
         except Exception: pass
 
 def _try_remove(path: str) -> None:
@@ -173,7 +202,7 @@ def _try_remove(path: str) -> None:
 def require_allowed(fn):
     @wraps(fn)
     async def wrapper(client_or_self, msg: Message, *args, **kwargs):
-        if not is_allowed(msg.from_user.id):
+        if not msg.from_user or not is_allowed(msg.from_user.id):
             return
         return await fn(client_or_self, msg, *args, **kwargs)
     return wrapper
@@ -181,7 +210,7 @@ def require_allowed(fn):
 def require_super(fn):
     @wraps(fn)
     async def wrapper(client_or_self, msg: Message, *args, **kwargs):
-        if not is_super(msg.from_user.id):
+        if not msg.from_user or not is_super(msg.from_user.id):
             return
         return await fn(client_or_self, msg, *args, **kwargs)
     return wrapper
@@ -189,6 +218,8 @@ def require_super(fn):
 def require_shell_free(fn):
     @wraps(fn)
     async def wrapper(client_or_self, msg: Message, *args, **kwargs):
+        if not msg.from_user:
+            return
         uid = msg.from_user.id
         if uid in active_shells:
             s = active_shells[uid]
@@ -210,9 +241,10 @@ def _progress_text(label: str, current: int, total: int, elapsed: float) -> str:
     speed = current / elapsed if elapsed > 0 else 0
     eta   = (total - current) / speed if speed > 0 and total > current else -1
     pct   = current * 100 / total if total > 0 else 0
+    szstr = f"{fmt_size(current)} / {fmt_size(total)}" if total else fmt_size(current)
     return (
         f"`{label}`\n`{pbar(pct)}`\n\n"
-        f"size:    {fmt_size(current)} / {fmt_size(total)}\n"
+        f"size:    {szstr}\n"
         f"speed:   {fmt_size(speed)}/s\n"
         f"eta:     {fmt_time(eta)}\n"
         f"elapsed: {fmt_time(elapsed)}"
@@ -221,7 +253,7 @@ def _progress_text(label: str, current: int, total: int, elapsed: float) -> str:
 def make_progress(label: str, status: Message, t0: float, ledge: list):
     async def cb(current: int, total: int) -> None:
         now = time.time()
-        if now - ledge[0] < 3:
+        if now - ledge[0] < PROGRESS_INTERVAL:
             return
         ledge[0] = now
         await safe_edit(status, _progress_text(label, current, total, now - t0))
@@ -229,7 +261,7 @@ def make_progress(label: str, status: Message, t0: float, ledge: list):
 
 # ── Transfer task helper ───────────────────────────────────────────────────────
 
-def _make_transfer_task(uid: int, coro, cleanup=None):
+def _make_transfer_task(uid: int, coro, cleanup=None) -> asyncio.Task:
     async def _wrapper():
         try:
             await coro
@@ -239,6 +271,7 @@ def _make_transfer_task(uid: int, coro, cleanup=None):
                 cleanup()
 
     task = asyncio.create_task(_wrapper())
+    # Safe: active_transfers[uid] must be set by caller before this call
     active_transfers[uid]["task"] = task
     return task
 
@@ -251,7 +284,8 @@ async def gofile_upload(path: str, status: Message) -> str:
         r = await http.get("https://api.gofile.io/servers")
         r.raise_for_status()
         servers = [s["name"] for s in r.json()["data"]["servers"]]
-    last_err = None
+
+    last_err: Exception | None = None
     for server in servers:
         await safe_edit(status, f"uploading `{name}` to gofile [{server}]…")
         try:
@@ -268,6 +302,8 @@ async def gofile_upload(path: str, status: Message) -> str:
             return data["data"]["downloadPage"]
         except Exception as e:
             last_err = e
+            log.warning("gofile server %s failed: %s", server, e)
+
     raise RuntimeError(f"all gofile servers failed: {last_err}")
 
 # ── TG upload ─────────────────────────────────────────────────────────────────
@@ -301,27 +337,15 @@ async def http_download(
             total = int(resp.headers.get("content-length", 0))
             done  = 0
             with open(dest, "wb") as f:
-                async for chunk in resp.aiter_bytes(512 * 1024):
+                async for chunk in resp.aiter_bytes(DL_CHUNK_SIZE):
                     if cancel_ev.is_set():
                         raise asyncio.CancelledError
                     f.write(chunk)
                     done += len(chunk)
                     now = time.time()
-                    if now - ledge[0] >= 3:
+                    if now - ledge[0] >= PROGRESS_INTERVAL:
                         ledge[0] = now
-                        elapsed = now - t0
-                        speed   = done / elapsed if elapsed > 0 else 0
-                        eta     = (total - done) / speed if speed > 0 and total > 0 else -1
-                        pct     = done * 100 / total if total > 0 else 0
-                        szstr   = f"{fmt_size(done)} / {fmt_size(total)}" if total else fmt_size(done)
-                        await safe_edit(
-                            status,
-                            f"`{name}`\n`{pbar(pct)}`\n\n"
-                            f"size:    {szstr}\n"
-                            f"speed:   {fmt_size(speed)}/s\n"
-                            f"eta:     {fmt_time(eta)}\n"
-                            f"elapsed: {fmt_time(elapsed)}",
-                        )
+                        await safe_edit(status, _progress_text(name, done, total, now - t0))
     return os.path.getsize(dest)
 
 # ── SF upload ──────────────────────────────────────────────────────────────────
@@ -329,10 +353,35 @@ async def http_download(
 async def sf_upload(status: Message, path: str, project: str, folder: str) -> str:
     name   = os.path.basename(path)
     remote = f"/home/frs/project/{project}/{folder}/{name}"
-    await safe_edit(status, f"uploading `{name}` to sourceforge [{project}/{folder}]…")
-    async with asyncssh.connect("frs.sourceforge.net", username=SF_USER, password=SF_PASS, known_hosts=None) as conn:
+    size   = os.path.getsize(path)
+    await safe_edit(status, f"connecting to sourceforge…")
+
+    async with asyncssh.connect(
+        "frs.sourceforge.net",
+        username=SF_USER,
+        password=SF_PASS,
+        known_hosts=None,
+    ) as conn:
         async with conn.start_sftp_client() as sftp:
-            await sftp.put(path, remote, block_size=65536)
+            sent      = 0
+            ledge     = [time.time()]
+            t0        = time.time()
+            block     = 65536
+
+            async def _progress(transferred, _total):
+                nonlocal sent
+                sent = transferred
+                now  = time.time()
+                if now - ledge[0] >= PROGRESS_INTERVAL:
+                    ledge[0] = now
+                    await safe_edit(
+                        status,
+                        f"uploading `{name}` to sourceforge [{project}/{folder}]…\n"
+                        + _progress_text(name, sent, size, now - t0),
+                    )
+
+            await sftp.put(path, remote, block_size=block, progress_handler=_progress)
+
     return f"https://sourceforge.net/projects/{project}/files/{folder}/{name}"
 
 # ── Auth commands ──────────────────────────────────────────────────────────────
@@ -464,10 +513,7 @@ async def cmd_cancel(_, msg: Message):
 
     if uid in active_shells:
         s = active_shells.pop(uid)
-        kill_proc(s)
-        if proc := s.get("proc"):
-            try:   proc.kill()
-            except Exception: pass
+        await kill_proc(s)
         canceled.append(f"`{s['cmd']}` (shell, pid {s.get('pid', '?')})")
 
     if canceled:
@@ -682,7 +728,10 @@ async def cmd_transfer(client: Client, msg: Message):
     _make_transfer_task(uid, _url_tr(), cleanup=lambda: _try_remove(dest))
 
 
-async def _upload_to_targets(client, msg, path, status, do_tg, do_gf, t0):
+async def _upload_to_targets(
+    client: Client, msg: Message, path: str, status: Message,
+    do_tg: bool, do_gf: bool, t0: float,
+) -> None:
     name    = os.path.basename(path)
     size    = os.path.getsize(path)
     results = []
@@ -836,6 +885,7 @@ async def _run_shell(msg: Message, cmd: str) -> None:
     killed = False
     try:
         async def read_output():
+            assert proc.stdout
             async for raw in proc.stdout:
                 line = ANSI_RE.sub("", raw.decode(errors="replace").rstrip())
                 if len(line) > 300:
@@ -844,17 +894,20 @@ async def _run_shell(msg: Message, cmd: str) -> None:
                 if len(lines) > 200:
                     lines.pop(0)
                 now = time.time()
-                if now - ledge[0] >= 3:
+                if now - ledge[0] >= PROGRESS_INTERVAL:
                     ledge[0] = now
                     tail = "\n".join(lines[-40:])
                     if len(tail) > 3500:
-                        tail = tail[-3500:]
+                        tail = "…" + tail[-3499:]
                     await safe_edit(status, f"$ `{cmd}` (pid {pid})\n```\n{tail}\n```")
 
         await asyncio.wait_for(read_output(), timeout=3600)
         await proc.wait()
-    except (asyncio.TimeoutError, asyncio.CancelledError):
-        kill_proc({"pgid": pgid, "pid": pid, "proc": proc})
+    except asyncio.TimeoutError:
+        await kill_proc({"pgid": pgid, "pid": pid, "proc": proc})
+        killed = True
+    except asyncio.CancelledError:
+        await kill_proc({"pgid": pgid, "pid": pid, "proc": proc})
         killed = True
     except Exception as e:
         lines.append(f"[error: {e}]")
@@ -863,8 +916,9 @@ async def _run_shell(msg: Message, cmd: str) -> None:
 
     tail = "\n".join(lines[-40:]) or "(no output)"
     if len(tail) > 3500:
-        tail = tail[-3500:]
-    note = "killed (timeout)" if killed else ("done" if proc.returncode == 0 else f"exited {proc.returncode}")
+        tail = "…" + tail[-3499:]
+    rc   = proc.returncode
+    note = "killed (timeout/cancelled)" if killed else ("done" if rc == 0 else f"exited {rc}")
     await safe_edit(status, f"$ `{cmd}` — {note}\n```\n{tail}\n```")
 
 # ── /sh ────────────────────────────────────────────────────────────────────────
@@ -974,17 +1028,19 @@ async def cmd_ls(_, msg: Message):
         for e in entries:
             full = os.path.join(path, e)
             try:
-                st    = os.stat(full)
+                st    = os.lstat(full)  # lstat to show symlinks correctly
                 mode  = fmt_mode(stat.S_IMODE(st.st_mode))
-                size  = fmt_size(st.st_size) if os.path.isfile(full) else "-"
+                is_lnk = stat.S_ISLNK(st.st_mode)
+                is_dir = os.path.isdir(full)
+                size  = fmt_size(st.st_size) if not is_dir else "-"
                 mtime = datetime.fromtimestamp(st.st_mtime).strftime("%b %d %H:%M")
-                name  = e + "/" if os.path.isdir(full) else e
+                name  = e + ("/" if is_dir else ("@" if is_lnk else ""))
                 rows.append(f"{mode}  {size:>10}  {mtime}  {name}")
             except Exception:
                 rows.append(f"?????????  {'?':>10}  ???????????  {e}")
 
         await msg.reply(
-            f"{os.path.abspath(path)}  ({len(entries)} items)\n```\n" + "\n".join(rows) + "\n```",
+            f"`{os.path.abspath(path)}`  ({len(entries)} items)\n```\n" + "\n".join(rows) + "\n```",
             quote=True,
         )
     except Exception as e:
@@ -999,8 +1055,14 @@ async def cmd_cat(_, msg: Message):
         await msg.reply("**usage:** `/cat <file>`", quote=True)
         return
     try:
-        with open(a[0]) as f:
-            content = f.read(4000)
+        with open(a[0], "rb") as f:
+            raw = f.read(8192)
+        try:
+            content = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            content = raw.decode("latin-1")
+        if len(content) > 4000:
+            content = content[:4000] + "\n…(truncated)"
         await msg.reply(f"```\n{content}\n```", quote=True)
     except Exception as e:
         await msg.reply(f"error: `{e}`", quote=True)
@@ -1070,7 +1132,7 @@ async def cmd_rm(_, msg: Message):
         return
     try:
         target = a[0]
-        if os.path.isdir(target):
+        if os.path.isdir(target) and not os.path.islink(target):
             shutil.rmtree(target)
             await msg.reply(f"removed dir `{target}`", quote=True)
         else:
@@ -1100,8 +1162,9 @@ async def cmd_find(_, msg: Message):
         if not results:
             await msg.reply(f"no matches for `{pat}` in `{root}`", quote=True)
             return
+        truncated = len(results) >= 100
         text = "\n".join(results[:100])
-        if len(results) >= 100:
+        if truncated:
             text += "\n(truncated at 100)"
         await msg.reply(f"{len(results)} result(s):\n```\n{text}\n```", quote=True)
     except Exception as e:
@@ -1146,13 +1209,15 @@ async def cmd_du(_, msg: Message):
 async def cmd_env(_, msg: Message):
     text = "\n".join(f"{k}={v}" for k, v in sorted(os.environ.items()))
     if len(text) > 4000:
-        text = text[:4000] + "\n(truncated)"
+        text = text[:4000] + "\n…(truncated)"
     await msg.reply(f"```\n{text}\n```", quote=True)
 
 # ── Custom SF folder (must stay last among message handlers) ───────────────────
 
-@app.on_message(filters.private & filters.text & ~filters.regex(r"^/"))
+@app.on_message(filters.text & ~filters.regex(r"^/"))
 async def catch_sf_custom(_, msg: Message):
+    if not msg.from_user:
+        return
     uid = msg.from_user.id
     if uid not in pending_sf or not pending_sf[uid].get("awaiting_custom"):
         return
@@ -1180,17 +1245,18 @@ async def notify_startup() -> None:
         try:
             await app.send_message(cid, "🟢 online")
             sent += 1
+            await asyncio.sleep(0.05)  # gentle rate limiting
         except Exception:
             pass
     if sent:
-        print(f"[startup] notified {sent} chat(s)")
+        log.info("startup: notified %d chat(s)", sent)
 
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 async def main():
     await app.start()
     await notify_startup()
-    print("[bot] running")
+    log.info("bot running")
     await idle()
     await app.stop()
 
