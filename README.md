@@ -1,6 +1,10 @@
-# tgbot
+# Transfer Bot
 
-Pyrogram-based Telegram bot for remote shell execution, file transfers, and cloud uploads.
+A simple, async Telegram bot built with [Pyrogram](https://docs.pyrogram.org/)
+
+## Purpose
+
+Just an alternative to mirror bot with less bells and whistles
 
 ## Features
 
