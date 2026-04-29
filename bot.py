@@ -104,6 +104,11 @@ def get_args(msg: Message, n: int = 1) -> list[str]:
     parts = get_text(msg).split(maxsplit=n)
     return parts[1:] if len(parts) > 1 else []
 
+def get_shell_arg(msg: Message) -> str:
+    text = get_text(msg)
+    parts = text.split(maxsplit=1)
+    return parts[1] if len(parts) > 1 else ""
+
 def parse_flags(args: list[str]) -> tuple[list[str], set[str]]:
     return (
         [a for a in args if not a.startswith("--")],
@@ -217,7 +222,12 @@ def require_shell_free(fn):
         if uid in active_shells:
             await msg.reply(f"shell busy: `{active_shells[uid]['cmd']}` — use /cancel", quote=True)
             return
-        return await fn(client_or_self, msg, *args, **kwargs)
+        active_shells[uid] = {"cmd": "(starting…)", "start_time": time.time(), "lines": []}
+        try:
+            return await fn(client_or_self, msg, *args, **kwargs)
+        except Exception:
+            active_shells.pop(uid, None)
+            raise
     return wrapper
 
 # ── Chat tracker ───────────────────────────────────────────────────────────────
@@ -354,7 +364,6 @@ async def http_download(
 async def sf_upload(status: Message, path: str, project: str, folder: str) -> str:
     name   = os.path.basename(path)
     remote = f"/home/frs/project/{project}/{folder}/{name}"
-    size   = os.path.getsize(path)
     t0     = time.time()
     throttle = _Throttle()
     await safe_edit(status, "connecting to sourceforge…")
@@ -364,6 +373,7 @@ async def sf_upload(status: Message, path: str, project: str, folder: str) -> st
         username=SF_USER, password=SF_PASS, known_hosts=None,
     ) as conn:
         async with conn.start_sftp_client() as sftp:
+            size = os.path.getsize(path)
             sent = 0
 
             async def _progress(transferred, _total):
@@ -806,11 +816,11 @@ async def cmd_sf(_, msg: Message):
     )
 
 def _sf_check_session(uid: int) -> dict | None:
+    now = time.time()
+    for k in [k for k, v in list(pending_sf.items()) if now - v["ts"] > SF_SESSION_TTL]:
+        pending_sf.pop(k, None)
     info = pending_sf.get(uid)
     if not info:
-        return None
-    if time.time() - info["ts"] > SF_SESSION_TTL:
-        pending_sf.pop(uid, None)
         return None
     return info
 
@@ -839,7 +849,11 @@ async def cb_sf(_, cq: CallbackQuery):
 # ── Shell core ─────────────────────────────────────────────────────────────────
 
 async def _run_shell(msg: Message, cmd: str) -> None:
-    uid    = msg.from_user.id
+    uid = msg.from_user.id
+
+    if uid in active_shells:
+        active_shells[uid]["cmd"] = cmd
+
     status = await msg.reply(f"$ `{cmd}`", quote=True)
     lines: list[str] = []
     throttle = _Throttle()
@@ -855,10 +869,12 @@ async def _run_shell(msg: Message, cmd: str) -> None:
     try:    pgid = os.getpgid(pid)
     except Exception: pgid = None
 
-    active_shells[uid] = {
-        "proc": proc, "pid": pid, "pgid": pgid, "cmd": cmd,
-        "start_time": time.time(), "lines": lines,
-    }
+    # update slot with full process info
+    active_shells[uid].update({
+        "proc": proc, "pid": pid, "pgid": pgid,
+        "start_time": active_shells[uid].get("start_time", time.time()),
+        "lines": lines,
+    })
 
     killed = False
     try:
@@ -905,10 +921,12 @@ async def _run_shell(msg: Message, cmd: str) -> None:
 @require_allowed
 @require_shell_free
 async def cmd_sh(_, msg: Message):
-    a = get_args(msg)
-    if not a:
-        await msg.reply("**usage:** `/sh <command>`\nrun a shell command with live output", quote=True); return
-    await _run_shell(msg, a[0])
+    cmd = get_shell_arg(msg)
+    if not cmd:
+        active_shells.pop(msg.from_user.id, None)
+        await msg.reply("**usage:** `/sh <command>`\nrun a shell command with live output", quote=True)
+        return
+    asyncio.create_task(_run_shell(msg, cmd))
 
 # ── /stdin ─────────────────────────────────────────────────────────────────────
 
@@ -948,7 +966,7 @@ for _cmd, _shell in _SHELL_SHORTCUTS.items():
         @require_allowed
         @require_shell_free
         async def _handler(_, msg: Message):
-            await _run_shell(msg, shell_cmd)
+            asyncio.create_task(_run_shell(msg, shell_cmd))
         return _handler
     app.on_message(filters.command(_cmd))(_make(_shell))
 
@@ -958,9 +976,10 @@ for _cmd, _shell in _SHELL_SHORTCUTS.items():
 async def cmd_tail(_, msg: Message):
     a = get_args(msg, n=2)
     if not a:
+        active_shells.pop(msg.from_user.id, None)
         await msg.reply("**usage:** `/tail <file> [n]`\nshow last N lines (default 50)", quote=True); return
     n = int(a[1]) if len(a) > 1 and a[1].isdigit() else 50
-    await _run_shell(msg, f"tail -n {n} {a[0]!r}")
+    asyncio.create_task(_run_shell(msg, f"tail -n {n} {a[0]!r}"))
 
 @app.on_message(filters.command("head"))
 @require_allowed
@@ -968,9 +987,10 @@ async def cmd_tail(_, msg: Message):
 async def cmd_head(_, msg: Message):
     a = get_args(msg, n=2)
     if not a:
+        active_shells.pop(msg.from_user.id, None)
         await msg.reply("**usage:** `/head <file> [n]`\nshow first N lines (default 20)", quote=True); return
     n = int(a[1]) if len(a) > 1 and a[1].isdigit() else 20
-    await _run_shell(msg, f"head -n {n} {a[0]!r}")
+    asyncio.create_task(_run_shell(msg, f"head -n {n} {a[0]!r}"))
 
 @app.on_message(filters.command("grep"))
 @require_allowed
@@ -978,8 +998,9 @@ async def cmd_head(_, msg: Message):
 async def cmd_grep(_, msg: Message):
     a = get_args(msg, n=2)
     if len(a) < 2:
+        active_shells.pop(msg.from_user.id, None)
         await msg.reply("**usage:** `/grep <pattern> <file>`", quote=True); return
-    await _run_shell(msg, f"grep -n --color=never {a[0]!r} {a[1]!r}")
+    asyncio.create_task(_run_shell(msg, f"grep -n --color=never {a[0]!r} {a[1]!r}"))
 
 # ── Filesystem ─────────────────────────────────────────────────────────────────
 
@@ -1033,6 +1054,7 @@ async def cmd_cat(_, msg: Message):
             content = raw.decode("latin-1")
         if len(content) > 4000:
             content = content[:4000] + "\n…(truncated)"
+        content = content.replace("`", "\`")
         await msg.reply(f"```\n{content}\n```", quote=True)
     except Exception as e:
         await msg.reply(f"error: `{e}`", quote=True)
@@ -1188,6 +1210,8 @@ async def notify_startup() -> None:
         return
     sent = 0
     for cid in list(known_chats):
+        if cid not in SUPER_USERS and cid not in allowed_users:
+            continue
         try:
             await app.send_message(cid, "🟢 online")
             sent += 1
