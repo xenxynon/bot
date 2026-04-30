@@ -7,6 +7,7 @@ import re
 import shutil
 import signal
 import stat
+import tempfile
 import time
 from datetime import datetime
 from functools import wraps
@@ -33,6 +34,10 @@ SF_USER     = os.environ["SF_USER"]
 SF_PASS     = os.environ["SF_PASS"]
 SUPER_USERS = {int(x) for x in os.environ["SUPER_USERS"].split(",")}
 
+_SECRET_KEYS = frozenset({
+    "API_HASH", "API_ID", "BOT_TOKEN", "SF_PASS", "SF_USER", "SUPER_USERS",
+})
+
 SF_DEFAULT_PROJECT = "bot-uploads"
 SF_DEFAULT_FOLDER  = "workspace"
 SF_YAAP_PROJECT    = "xenxynon-roms"
@@ -49,6 +54,33 @@ SF_SESSION_TTL    = 300
 
 ANSI_RE    = re.compile(r"\x1b\[[0-9;]*[mKHJA-Za-z]")
 TORRENT_RE = re.compile(r"^magnet:|\.torrent(\?|$)", re.I)
+
+_ENV_FILE = os.path.abspath(
+    os.environ.get("DOTENV_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+)
+
+def _is_sensitive_path(path: str) -> bool:
+    try:
+        return os.path.abspath(path) == _ENV_FILE
+    except Exception:
+        return True
+
+_ENV_FILE_NAME = os.path.basename(_ENV_FILE)
+
+_SECRET_VARS = frozenset({
+    "api_id", "api_hash", "bot_token", "sf_pass", "sf_user", "super_users",
+})
+
+def _shell_cmd_is_safe(cmd: str) -> bool:
+    if _ENV_FILE_NAME in cmd or _ENV_FILE in cmd:
+        return False
+    lower = cmd.lower()
+    for var in _SECRET_VARS:
+        if var in lower:
+            return False
+    if "/proc/" in cmd and "environ" in cmd:
+        return False
+    return True
 
 # ── Persistence ────────────────────────────────────────────────────────────────
 
@@ -72,11 +104,15 @@ class PersistentSet:
         self._data.discard(item); self._save()
 
     def _save(self) -> None:
+        tmp = self._path + ".tmp"
         try:
-            with open(self._path, "w") as f:
+            with open(tmp, "w") as f:
                 json.dump(sorted(self._data), f, indent=2)
+            os.replace(tmp, self._path)
         except Exception as e:
             log.warning("PersistentSet save failed (%s): %s", self._path, e)
+            try: os.remove(tmp)
+            except Exception: pass
 
 # ── State ──────────────────────────────────────────────────────────────────────
 
@@ -105,9 +141,12 @@ def get_args(msg: Message, n: int = 1) -> list[str]:
     return parts[1:] if len(parts) > 1 else []
 
 def get_shell_arg(msg: Message) -> str:
-    text = get_text(msg)
+    text  = get_text(msg)
     parts = text.split(maxsplit=1)
-    return parts[1] if len(parts) > 1 else ""
+    if len(parts) < 2:
+        return ""
+    cmd = re.sub(r"^@\S+\s*", "", parts[1])
+    return cmd.strip()
 
 def parse_flags(args: list[str]) -> tuple[list[str], set[str]]:
     return (
@@ -169,16 +208,16 @@ async def kill_proc(info: dict) -> None:
         try: fn(target, sig)
         except Exception: pass
 
-    if pgid:       _send(os.killpg, pgid, signal.SIGTERM)
-    elif pid:      _send(os.kill,   pid,  signal.SIGTERM)
+    if pgid:  _send(os.killpg, pgid, signal.SIGTERM)
+    elif pid: _send(os.kill,   pid,  signal.SIGTERM)
     elif proc:
         try: proc.terminate()
         except Exception: pass
 
     await asyncio.sleep(0.5)
 
-    if pgid:       _send(os.killpg, pgid, signal.SIGKILL)
-    elif pid:      _send(os.kill,   pid,  signal.SIGKILL)
+    if pgid:  _send(os.killpg, pgid, signal.SIGKILL)
+    elif pid: _send(os.kill,   pid,  signal.SIGKILL)
     elif proc:
         try: proc.kill()
         except Exception: pass
@@ -297,24 +336,24 @@ async def gofile_upload(path: str, status: Message) -> str:
         r.raise_for_status()
         servers = [s["name"] for s in r.json()["data"]["servers"]]
 
-        last_err: Exception | None = None
-        for server in servers:
-            await safe_edit(status, f"uploading `{name}` to gofile [{server}]…")
-            try:
+    last_err: Exception | None = None
+    for server in servers:
+        await safe_edit(status, f"uploading `{name}` to gofile [{server}]…")
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30, read=None)) as http:
                 with open(path, "rb") as f:
                     r = await http.post(
                         f"https://{server}.gofile.io/contents/uploadfile",
                         files={"file": (name, f)},
-                        timeout=None,
                     )
                 r.raise_for_status()
                 data = r.json()
                 if data.get("status") != "ok":
                     raise RuntimeError(str(data))
                 return data["data"]["downloadPage"]
-            except Exception as e:
-                last_err = e
-                log.warning("gofile server %s failed: %s", server, e)
+        except Exception as e:
+            last_err = e
+            log.warning("gofile server %s failed: %s", server, e)
 
     raise RuntimeError(f"all gofile servers failed: {last_err}")
 
@@ -342,29 +381,38 @@ async def http_download(
     url: str, dest: str, name: str, status: Message, cancel_ev: asyncio.Event, t0: float
 ) -> int:
     throttle = _Throttle()
-    async with httpx.AsyncClient(follow_redirects=True, timeout=None) as http:
-        async with http.stream("GET", url) as resp:
-            resp.raise_for_status()
-            total = int(resp.headers.get("content-length", 0))
-            done  = 0
-            with open(dest, "wb") as f:
-                async for chunk in resp.aiter_bytes(DL_CHUNK_SIZE):
-                    if cancel_ev.is_set():
-                        raise asyncio.CancelledError
-                    f.write(chunk)
-                    done += len(chunk)
-                    now = time.time()
-                    if now - throttle.ts >= PROGRESS_INTERVAL:
-                        throttle.ts = now
-                        await safe_edit(status, _progress_text(name, done, total, now - t0))
+    dir_     = os.path.dirname(os.path.abspath(dest))
+    tmp      = None
+    try:
+        fd, tmp = tempfile.mkstemp(dir=dir_)
+        with os.fdopen(fd, "wb") as f:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=None) as http:
+                async with http.stream("GET", url) as resp:
+                    resp.raise_for_status()
+                    total = int(resp.headers.get("content-length", 0))
+                    done  = 0
+                    async for chunk in resp.aiter_bytes(DL_CHUNK_SIZE):
+                        if cancel_ev.is_set():
+                            raise asyncio.CancelledError
+                        f.write(chunk)
+                        done += len(chunk)
+                        now = time.time()
+                        if now - throttle.ts >= PROGRESS_INTERVAL:
+                            throttle.ts = now
+                            await safe_edit(status, _progress_text(name, done, total, now - t0))
+        os.replace(tmp, dest)
+        tmp = None
+    finally:
+        if tmp:
+            _try_remove(tmp)
     return os.path.getsize(dest)
 
 # ── SF upload ──────────────────────────────────────────────────────────────────
 
 async def sf_upload(status: Message, path: str, project: str, folder: str) -> str:
-    name   = os.path.basename(path)
-    remote = f"/home/frs/project/{project}/{folder}/{name}"
-    t0     = time.time()
+    name     = os.path.basename(path)
+    remote   = f"/home/frs/project/{project}/{folder}/{name}"
+    t0       = time.time()
     throttle = _Throttle()
     await safe_edit(status, "connecting to sourceforge…")
 
@@ -431,12 +479,10 @@ async def _do_download(
             )
     except asyncio.CancelledError:
         await safe_edit(status, f"cancelled: `{name}`")
-        if not tg_media:
-            _try_remove(dest)
+        _try_remove(dest)
     except Exception as e:
         await safe_edit(status, f"failed: `{e}`")
-        if not tg_media:
-            _try_remove(dest)
+        _try_remove(dest)
 
 async def _upload_to_targets(
     client: Client, msg: Message, path: str, status: Message,
@@ -486,6 +532,7 @@ async def cmd_revoke(_, msg: Message):
     try:
         uid = int(a[0])
         allowed_users.discard(uid)
+        known_chats.discard(uid)
         await msg.reply(f"✅ revoked `{uid}`", quote=True)
     except ValueError:
         await msg.reply("invalid user id", quote=True)
@@ -561,7 +608,8 @@ async def cmd_status(_, msg: Message):
         s    = active_shells[uid]
         tail = "\n".join(s["lines"][-5:]) or "(no output)"
         if len(tail) > 1500:
-            tail = tail[-1500:]
+            tail = "…" + tail[-1499:]
+        tail = tail.replace("`", r"\`")
         parts.append(f"**shell:** `{s['cmd']}` (pid {s.get('pid', '?')}) — {fmt_time(time.time() - s['start_time'])} elapsed\n```\n{tail}\n```")
 
     await msg.reply("\n\n".join(parts) if parts else "no active tasks", quote=True)
@@ -604,6 +652,8 @@ async def cmd_upload(client: Client, msg: Message):
         return
 
     path = a[0]
+    if _is_sensitive_path(path):
+        await msg.reply("access denied", quote=True); return
     if not os.path.isfile(path):
         await msg.reply(f"not found: `{path}`", quote=True); return
 
@@ -709,6 +759,8 @@ async def cmd_transfer(client: Client, msg: Message):
     target = pos[0]
 
     if not target.startswith(("http://", "https://")):
+        if _is_sensitive_path(target):
+            await msg.reply("access denied", quote=True); return
         if not os.path.isfile(target):
             await msg.reply(f"not found: `{target}`", quote=True); return
         name   = os.path.basename(target)
@@ -752,6 +804,8 @@ async def cmd_gofile(_, msg: Message):
     if not a:
         await msg.reply("**usage:** `/gf <path>`\nupload a file to gofile.io", quote=True); return
     path = a[0]
+    if _is_sensitive_path(path):
+        await msg.reply("access denied", quote=True); return
     if not os.path.isfile(path):
         await msg.reply(f"not found: `{path}`", quote=True); return
     name   = os.path.basename(path)
@@ -790,6 +844,8 @@ async def cmd_sf(_, msg: Message):
         ); return
 
     path = pos[0]
+    if _is_sensitive_path(path):
+        await msg.reply("access denied", quote=True); return
     if not os.path.isfile(path):
         await msg.reply(f"not found: `{path}`", quote=True); return
 
@@ -819,10 +875,7 @@ def _sf_check_session(uid: int) -> dict | None:
     now = time.time()
     for k in [k for k, v in list(pending_sf.items()) if now - v["ts"] > SF_SESSION_TTL]:
         pending_sf.pop(k, None)
-    info = pending_sf.get(uid)
-    if not info:
-        return None
-    return info
+    return pending_sf.get(uid)
 
 @app.on_callback_query(filters.regex(r"^sf:"))
 async def cb_sf(_, cq: CallbackQuery):
@@ -854,7 +907,7 @@ async def _run_shell(msg: Message, cmd: str) -> None:
     if uid in active_shells:
         active_shells[uid]["cmd"] = cmd
 
-    status = await msg.reply(f"$ `{cmd}`", quote=True)
+    status   = await msg.reply(f"$ `{cmd}`", quote=True)
     lines: list[str] = []
     throttle = _Throttle()
 
@@ -869,7 +922,6 @@ async def _run_shell(msg: Message, cmd: str) -> None:
     try:    pgid = os.getpgid(pid)
     except Exception: pgid = None
 
-    # update slot with full process info
     active_shells[uid].update({
         "proc": proc, "pid": pid, "pgid": pgid,
         "start_time": active_shells[uid].get("start_time", time.time()),
@@ -926,6 +978,10 @@ async def cmd_sh(_, msg: Message):
         active_shells.pop(msg.from_user.id, None)
         await msg.reply("**usage:** `/sh <command>`\nrun a shell command with live output", quote=True)
         return
+    if not _shell_cmd_is_safe(cmd):
+        active_shells.pop(msg.from_user.id, None)
+        await msg.reply("access denied", quote=True)
+        return
     asyncio.create_task(_run_shell(msg, cmd))
 
 # ── /stdin ─────────────────────────────────────────────────────────────────────
@@ -936,13 +992,13 @@ async def cmd_stdin(_, msg: Message):
     uid = msg.from_user.id
     if uid not in active_shells:
         await msg.reply("no active shell", quote=True); return
-    a = get_args(msg)
-    if not a:
+    text = get_shell_arg(msg)
+    if not text:
         await msg.reply("**usage:** `/stdin <text>`", quote=True); return
     proc = active_shells[uid].get("proc")
     if proc and proc.stdin:
         try:
-            proc.stdin.write((a[0] + "\n").encode())
+            proc.stdin.write((text + "\n").encode())
             await proc.stdin.drain()
             await msg.reply("sent", quote=True)
         except Exception as e:
@@ -978,6 +1034,9 @@ async def cmd_tail(_, msg: Message):
     if not a:
         active_shells.pop(msg.from_user.id, None)
         await msg.reply("**usage:** `/tail <file> [n]`\nshow last N lines (default 50)", quote=True); return
+    if _is_sensitive_path(a[0]):
+        active_shells.pop(msg.from_user.id, None)
+        await msg.reply("access denied", quote=True); return
     n = int(a[1]) if len(a) > 1 and a[1].isdigit() else 50
     asyncio.create_task(_run_shell(msg, f"tail -n {n} {a[0]!r}"))
 
@@ -989,6 +1048,9 @@ async def cmd_head(_, msg: Message):
     if not a:
         active_shells.pop(msg.from_user.id, None)
         await msg.reply("**usage:** `/head <file> [n]`\nshow first N lines (default 20)", quote=True); return
+    if _is_sensitive_path(a[0]):
+        active_shells.pop(msg.from_user.id, None)
+        await msg.reply("access denied", quote=True); return
     n = int(a[1]) if len(a) > 1 and a[1].isdigit() else 20
     asyncio.create_task(_run_shell(msg, f"head -n {n} {a[0]!r}"))
 
@@ -1000,6 +1062,9 @@ async def cmd_grep(_, msg: Message):
     if len(a) < 2:
         active_shells.pop(msg.from_user.id, None)
         await msg.reply("**usage:** `/grep <pattern> <file>`", quote=True); return
+    if _is_sensitive_path(a[1]):
+        active_shells.pop(msg.from_user.id, None)
+        await msg.reply("access denied", quote=True); return
     asyncio.create_task(_run_shell(msg, f"grep -n --color=never {a[0]!r} {a[1]!r}"))
 
 # ── Filesystem ─────────────────────────────────────────────────────────────────
@@ -1045,6 +1110,8 @@ async def cmd_cat(_, msg: Message):
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/cat <file>`", quote=True); return
+    if _is_sensitive_path(a[0]):
+        await msg.reply("access denied", quote=True); return
     try:
         with open(a[0], "rb") as f:
             raw = f.read(8192)
@@ -1054,7 +1121,7 @@ async def cmd_cat(_, msg: Message):
             content = raw.decode("latin-1")
         if len(content) > 4000:
             content = content[:4000] + "\n…(truncated)"
-        content = content.replace("`", "\`")
+        content = content.replace("`", r"\`")
         await msg.reply(f"```\n{content}\n```", quote=True)
     except Exception as e:
         await msg.reply(f"error: `{e}`", quote=True)
@@ -1088,6 +1155,8 @@ async def cmd_mv(_, msg: Message):
     a = get_args(msg, n=2)
     if len(a) < 2:
         await msg.reply("**usage:** `/mv <src> <dst>`", quote=True); return
+    if _is_sensitive_path(a[0]) or _is_sensitive_path(a[1]):
+        await msg.reply("access denied", quote=True); return
     try:
         shutil.move(a[0], a[1])
         await msg.reply(f"`{a[0]}` → `{a[1]}`", quote=True)
@@ -1100,6 +1169,8 @@ async def cmd_cp(_, msg: Message):
     a = get_args(msg, n=2)
     if len(a) < 2:
         await msg.reply("**usage:** `/cp <src> <dst>`", quote=True); return
+    if _is_sensitive_path(a[0]) or _is_sensitive_path(a[1]):
+        await msg.reply("access denied", quote=True); return
     try:
         shutil.copy2(a[0], a[1])
         await msg.reply(f"`{a[0]}` → `{a[1]}`", quote=True)
@@ -1112,6 +1183,8 @@ async def cmd_rm(_, msg: Message):
     a = get_args(msg)
     if not a:
         await msg.reply("**usage:** `/rm <path>`", quote=True); return
+    if _is_sensitive_path(a[0]):
+        await msg.reply("access denied", quote=True); return
     try:
         target = a[0]
         if os.path.isdir(target) and not os.path.islink(target):
@@ -1179,9 +1252,12 @@ async def cmd_du(_, msg: Message):
         await msg.reply(f"error: `{e}`", quote=True)
 
 @app.on_message(filters.command("env"))
-@require_allowed
+@require_super
 async def cmd_env(_, msg: Message):
-    text = "\n".join(f"{k}={v}" for k, v in sorted(os.environ.items()))
+    lines = []
+    for k, v in sorted(os.environ.items()):
+        lines.append(f"{k}=<redacted>" if k in _SECRET_KEYS else f"{k}={v}")
+    text = "\n".join(lines)
     if len(text) > 4000:
         text = text[:4000] + "\n…(truncated)"
     await msg.reply(f"```\n{text}\n```", quote=True)
