@@ -8,6 +8,7 @@ import tempfile
 import time
 from collections import deque
 from functools import wraps
+from web import start_web
 
 import asyncssh
 import httpx
@@ -750,6 +751,7 @@ _register_2path("cp", shutil.copy2)
 
 async def main():
     await app.start()
+    await start_web()
     print("bot running")
     await idle()
     await app.stop()
