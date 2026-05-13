@@ -559,7 +559,7 @@ async def cmd_gofile(_, msg):
     if _sensitive(path): await msg.reply("denied", quote=True); return
     if not os.path.isfile(path): await msg.reply(f"not found: `{path}`", quote=True); return
     size = os.path.getsize(path)
-    status = await msg.reply(f"↑ `{os.path.basename(path)}` → gofile…", quote=True)
+    status = await msg.reply(f"↑ `{os.path.basename(path)}`  gofile…", quote=True)
     try:
         link = await _gofile(path, status)
         await _edit(status, f"done\nsize: {fsize(size)}\nlink: {link}")
@@ -656,7 +656,7 @@ async def cmd_stdin(_, msg):
         await msg.reply("n/a", quote=True)
 
 
-# ── Shell convenience commands ─────────────────────────────────────────────────
+# ── Shell convenience commands ────────────────────────────────────────────────
 # FIX: use unique function names via a factory — avoids identical `_h` names
 #      being registered, which can confuse Pyrogram's handler deduplication.
 
