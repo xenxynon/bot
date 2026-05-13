@@ -8,7 +8,7 @@ import tempfile
 import time
 from collections import deque
 from functools import wraps
-from web import start_web
+from pathlib import Path
 
 import asyncssh
 import httpx
@@ -25,6 +25,7 @@ BOT_TOKEN   = os.environ["BOT_TOKEN"]
 SF_USER     = os.environ["SF_USER"]
 SF_PASS     = os.environ["SF_PASS"]
 SUPER_USERS = {int(x) for x in os.environ["SUPER_USERS"].split(",")}
+WEB_BASE    = os.environ.get("WEB_BASE", "").rstrip("/")   # e.g. https://files.example.com
 
 _SECRET_VARS = frozenset({"api_id","api_hash","bot_token","sf_pass","sf_user","super_users"})
 _SECRET_KEYS = frozenset({"API_HASH","API_ID","BOT_TOKEN","SF_PASS","SF_USER","SUPER_USERS"})
@@ -33,6 +34,11 @@ SF_PROJECT  = "bot-uploads"
 SF_YAAP_PRJ = "xenxynon-roms"
 SF_YAAP_DIR = "yaap"
 SF_FOLDERS  = ["workspace","releases","test","misc"]
+
+# All downloads land here; web.py serves from the same dir
+DOWNLOADS_DIR = Path(os.environ.get("DOWNLOADS_DIR",
+    Path(__file__).parent / "downloads")).resolve()
+DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 TG_MAX_SIZE       = 2 * 1024**3
 ALLOWED_FILE      = "allowed_users.json"
@@ -45,7 +51,6 @@ BUSY_MSG          = "busy — /cancel first"
 ANSI_RE    = re.compile(r"\x1b\[[0-9;]*[mKHJA-Za-z]")
 TORRENT_RE = re.compile(r"^magnet:|\.torrent(\?|$)", re.I)
 
-# Shell convenience commands — defined at module level so _mk loop is clean
 SHELL_CMDS = {
     "ps":      "ps aux --sort=-%cpu | head -30",
     "top":     "top -bn1 | head -40",
@@ -68,6 +73,15 @@ def _shell_safe(cmd):
     lo = cmd.lower()
     if any(v in lo for v in _SECRET_VARS): return False
     return not ("/proc/" in cmd and "environ" in cmd)
+
+def _web_link(name: str) -> str | None:
+    """Return a web UI download link for a file if WEB_BASE is configured."""
+    if not WEB_BASE: return None
+    return f"{WEB_BASE}/dl/{name}"
+
+def _dl_dest(name: str) -> str:
+    """Canonical download destination inside DOWNLOADS_DIR."""
+    return str(DOWNLOADS_DIR / name)
 
 
 # ── Persistent user set ────────────────────────────────────────────────────────
@@ -97,7 +111,7 @@ app           = Client("bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TO
 allowed_users = PSet(ALLOWED_FILE)
 transfers: dict[int, dict] = {}
 shells:    dict[int, dict] = {}
-psf:       dict[int, dict] = {}   # pending sf folder selection
+psf:       dict[int, dict] = {}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -230,8 +244,6 @@ async def _gofile(path, status):
 
 # ── TG upload ──────────────────────────────────────────────────────────────────
 
-# FIX: added `silent` param — when called from _upload, suppress the final
-#      "done" edit so _upload can write its own combined summary instead.
 async def _tgup(client, msg, path, status, *, silent=False):
     name, size, t0, ts = os.path.basename(path), os.path.getsize(path), time.time(), [0.0]
     if size > TG_MAX_SIZE:
@@ -296,12 +308,13 @@ async def _sfup(status, path, project, folder):
 async def _upload(client, msg, path, status, do_tg, do_gf, t0):
     name, size, res = os.path.basename(path), os.path.getsize(path), []
     if do_tg:
-        # FIX: pass silent=True so _tgup doesn't write its own "done" edit
         await _tgup(client, msg, path, status, silent=True)
         res.append("tg ✓")
     if do_gf:
         if do_tg: await _edit(status, f"↑ `{name}` → gofile…")
         res.append(f"gofile: {await _gofile(path, status)}")
+    web = _web_link(name)
+    if web: res.append(f"web: {web}")
     await _edit(status,
                 f"done\nfile: `{name}`\nsize: {fsize(size)}\n"
                 f"time: {ftime(time.time()-t0)}\n" + "\n".join(res))
@@ -324,9 +337,11 @@ async def _dl(*, client, msg, status, uid, name, dest, t0,
             await _upload(client, msg, dest, status, do_tg, do_gf, time.time())
         else:
             sz = os.path.getsize(dest) if os.path.exists(dest) else 0
-            await _edit(status,
-                        f"done\nfile: `{name}`\nsize: {fsize(sz)}\n"
-                        f"path: `{dest}`\ntime: {ftime(time.time()-t0)}")
+            web = _web_link(name)
+            summary = (f"done\nfile: `{name}`\nsize: {fsize(sz)}\n"
+                       f"path: `{dest}`\ntime: {ftime(time.time()-t0)}")
+            if web: summary += f"\nweb:  {web}"
+            await _edit(status, summary)
     except asyncio.CancelledError:
         await _edit(status, f"cancelled: `{name}`"); _rm(dest)
     except Exception as e:
@@ -341,9 +356,7 @@ def _sfses(uid):
     for k in expired: del psf[k]
     return psf.get(uid)
 
-# FIX: _sfexec now accepts uid so it can track in transfers and be cancellable
 async def _sfexec(uid, status, path, project, folder):
-    # Register so /cancel can interrupt
     transfers[uid] = {"type": "sf", "name": os.path.basename(path), "start_time": time.time()}
     async def _run():
         try:
@@ -457,7 +470,6 @@ async def cmd_cancel(_, msg):
         done.append(f"`{t['name']}`")
     if uid in shells:
         s = shells.pop(uid); await _kill(s); done.append(f"`{s['cmd']}`")
-    # FIX: also clean up pending SF folder selection
     if uid in psf:
         psf.pop(uid); done.append("sf session")
     await msg.reply("cancelled: " + " ".join(done) if done else "nothing active", quote=True)
@@ -489,7 +501,7 @@ async def cmd_download(client, msg):
     media = r and (r.document or r.video or r.audio or r.photo)
     if media:
         name = getattr(media, "file_name", None) or f"tg_{media.file_id[:8]}"
-        dest = os.path.join(os.getcwd(), name); t0 = time.time()
+        dest = _dl_dest(name); t0 = time.time()
         status = await msg.reply(f"↓ `{name}`…", quote=True)
         transfers[uid] = {"type": "download", "name": name, "start_time": t0}
         _mktask(uid, _dl(client=client, msg=msg, status=status, uid=uid,
@@ -501,7 +513,7 @@ async def cmd_download(client, msg):
     if TORRENT_RE.search(url) or not url.startswith(("http://", "https://")):
         await msg.reply("http/https only, no torrents", quote=True); return
     name = a[1] if len(a) > 1 else (os.path.basename(url.split("?")[0]) or "download")
-    dest = os.path.join(os.getcwd(), name); ev = asyncio.Event(); t0 = time.time()
+    dest = _dl_dest(name); ev = asyncio.Event(); t0 = time.time()
     status = await msg.reply(f"↓ `{name}`…", quote=True)
     transfers[uid] = {"type": "download", "name": name, "start_time": t0, "cancel_event": ev}
     _mktask(uid, _dl(client=client, msg=msg, status=status, uid=uid,
@@ -518,7 +530,7 @@ async def cmd_transfer(client, msg):
     media = r and (r.document or r.video or r.audio or r.photo)
     if media:
         name = getattr(media, "file_name", None) or f"tg_{media.file_id[:8]}"
-        dest = os.path.join(os.getcwd(), name); t0 = time.time()
+        dest = _dl_dest(name); t0 = time.time()
         transfers[uid] = {"type": "download", "name": name, "start_time": t0}
         _mktask(uid,
                 _dl(client=client, msg=msg,
@@ -542,7 +554,7 @@ async def cmd_transfer(client, msg):
         _mktask(uid, _lu()); return
     if TORRENT_RE.search(target): await msg.reply("no torrents", quote=True); return
     name = pos[1] if len(pos) > 1 else (os.path.basename(target.split("?")[0]) or "download")
-    dest = os.path.join(os.getcwd(), name); ev = asyncio.Event(); t0 = time.time()
+    dest = _dl_dest(name); ev = asyncio.Event(); t0 = time.time()
     transfers[uid] = {"type": "download", "name": name, "start_time": t0, "cancel_event": ev}
     _mktask(uid,
             _dl(client=client, msg=msg,
@@ -578,7 +590,6 @@ async def cmd_sf(_, msg):
     if _sensitive(path): await msg.reply("denied", quote=True); return
     if not os.path.isfile(path): await msg.reply(f"not found: `{path}`", quote=True); return
     if "yaap" in flags:
-        # FIX: pass uid so transfer is tracked
         await _sfexec(uid, await msg.reply("↑ xenxynon-roms/yaap…", quote=True),
                       path, SF_YAAP_PRJ, SF_YAAP_DIR)
         return
@@ -613,7 +624,6 @@ async def cb_sf(_, cq):
 async def catch_sf_custom(_, msg):
     uid = msg.from_user.id
     info = _sfses(uid)
-    # Only intercept when explicitly awaiting a custom folder name
     if not info or not info.get("awaiting_custom"): return
     folder = msg.text.strip()
     if not folder: return
@@ -625,7 +635,6 @@ async def catch_sf_custom(_, msg):
 @auth
 async def cmd_sh(_, msg):
     uid = msg.from_user.id
-    # FIX: check BEFORE creating task to close the race window
     if uid in shells:
         await msg.reply(f"busy: `{shells[uid]['cmd']}` — /cancel", quote=True); return
     cmd = _sharg(msg)
@@ -642,7 +651,6 @@ async def cmd_stdin(_, msg):
     if not text: await msg.reply("usage: /stdin <text>", quote=True); return
     shell = shells[uid]
     proc = shell.get("proc")
-    # FIX: verify process is still alive before writing
     if not proc or proc.returncode is not None:
         shells.pop(uid, None)
         await msg.reply("shell already exited", quote=True); return
@@ -658,8 +666,6 @@ async def cmd_stdin(_, msg):
 
 
 # ── Shell convenience commands ────────────────────────────────────────────────
-# FIX: use unique function names via a factory — avoids identical `_h` names
-#      being registered, which can confuse Pyrogram's handler deduplication.
 
 def _make_shell_handler(sc):
     @auth
@@ -750,8 +756,9 @@ _register_2path("cp", shutil.copy2)
 # ── Entry point ────────────────────────────────────────────────────────────────
 
 async def main():
-    await app.start()
+    from web import start_web
     await start_web()
+    await app.start()
     print("bot running")
     await idle()
     await app.stop()
