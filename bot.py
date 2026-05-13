@@ -13,6 +13,7 @@ from pathlib import Path
 import asyncssh
 import httpx
 from dotenv import load_dotenv
+from web import make_dl_token
 from pyrogram import Client, filters, idle
 from pyrogram.errors import FloodWait, MessageNotModified
 from pyrogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
@@ -75,9 +76,9 @@ def _shell_safe(cmd):
     return not ("/proc/" in cmd and "environ" in cmd)
 
 def _web_link(name: str) -> str | None:
-    """Return a web UI download link for a file if WEB_BASE is configured."""
     if not WEB_BASE: return None
-    return f"{WEB_BASE}/dl/{name}"
+    tok = make_dl_token(name)
+    return f"{WEB_BASE}/get/{tok}/{name}"
 
 def _dl_dest(name: str) -> str:
     """Canonical download destination inside DOWNLOADS_DIR."""
