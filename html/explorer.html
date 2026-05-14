@@ -41,6 +41,7 @@
   flex: 1; display: flex; align-items: center;
   padding: 0 20px; gap: 12px;
   border-right: 1px solid var(--border);
+  min-width: 0;
 }
 
 .nav-search svg { flex-shrink: 0; stroke: var(--sub); }
@@ -53,7 +54,7 @@
 
 .nav-actions {
   display: flex; align-items: center;
-  padding: 0 16px; gap: 8px; margin-left: auto;
+  padding: 0 16px; gap: 8px; flex-shrink: 0;
 }
 
 .nav-btn {
@@ -209,8 +210,6 @@
   background: color-mix(in srgb, var(--green) 8%, transparent);
   pointer-events: none;
 }
-.act-btn.spin { animation: spin .7s linear infinite; pointer-events: none; color: var(--subtle); }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .empty { padding: 100px 24px; text-align: center; }
 .empty-num {
@@ -247,18 +246,51 @@
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ── mobile ── */
 @media (max-width: 640px) {
+  /* prevent content from hiding under fixed statusbar */
+  body { padding-bottom: 32px; }
+
   .sidebar { display: none; }
   .body { display: block; }
-  .nav-brand { padding: 0 16px; }
-  .nav-search { padding: 0 14px; }
-  .nav-actions { padding: 0 12px; gap: 6px; }
+
+  .nav-brand { padding: 0 14px; }
+  .nav-search { padding: 0 12px; gap: 8px; }
+  .nav-actions { padding: 0 10px; gap: 6px; }
+
+  /* compress sign-out on small screens so search bar has room */
+  .nav-btn:not(.icon-only) { padding: 0 10px; font-size: 11px; }
+
   .filter-strip { padding: 0 12px; }
   .thead { display: none; }
-  .frow { grid-template-columns: 1fr auto; height: auto; padding: 14px 16px; gap: 12px; }
+
+  /* stack layout: name takes full width, actions float right */
+  .frow {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    height: auto;
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  /* allow long filenames to wrap instead of truncating */
+  .fname-main {
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.35;
+  }
+
+  /* align action buttons to top so they don't float mid-name */
+  .fact { align-items: flex-start; padding-top: 2px; }
+
   .fsize, .fdate { display: none; }
   .fname-meta { display: block !important; }
   .act-btn { width: 36px; height: 36px; }
+}
+
+/* hide egg text on very small screens to save statusbar space */
+@media (max-width: 400px) {
+  .sb-egg { display: none; }
 }
 </style>
 </head>
@@ -480,7 +512,6 @@ function setExt(e) { _ext = e; buildSidebar(); buildTabs(); render(); }
 const COPY_SVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 const DL_SVG    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 const CHECK_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-const SPIN_SVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22" opacity=".25"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76" opacity=".8"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07" opacity=".15"/><line x1="2" y1="12" x2="6" y2="12" opacity=".55"/><line x1="18" y1="12" x2="22" y2="12" opacity=".1"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24" opacity=".35"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93" opacity=".95"/></svg>`;
 
 function render() {
   const q = document.getElementById('q').value.toLowerCase().trim();
@@ -575,7 +606,6 @@ async function copyLink(name, id) {
 function dl(name, id) {
   const btn = document.getElementById(id);
   if (!btn) return;
-  btn.classList.add('spin'); btn.innerHTML = SPIN_SVG;
   const a = document.createElement('a');
   a.href = '/dl/' + encodeURIComponent(name);
   a.download = name;

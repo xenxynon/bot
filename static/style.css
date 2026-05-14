@@ -1,7 +1,5 @@
-/* ── reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── tokens ── */
 :root {
   --bg:      #fafafa;
   --surface: #f2f2f2;
@@ -26,9 +24,10 @@
   --green:   #4ade80;
 }
 
-/* ── base ── */
 html, body {
+  width: 100%;           
   min-height: 100%;
+  overflow-x: hidden;    
   background: var(--bg);
   color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -41,3 +40,8 @@ html, body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+@media (max-width: 900px) and (min-width: 641px) {
+  .sidebar { display: none; }
+  .body { display: block; }
+}

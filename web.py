@@ -88,11 +88,13 @@ async def _stream(req: web.Request, path: Path, name: str) -> web.Response:
         "Content-Length":      str(path.stat().st_size),
     })
     await resp.prepare(req)
-    with open(path, "rb") as f:
-        while chunk := f.read(65536):
-            await resp.write(chunk)
+    try:
+        with open(path, "rb") as f:
+            while chunk := f.read(65536):
+                await resp.write(chunk)
+    except (ConnectionError, ConnectionResetError):
+        pass
     return resp
-
 
 # ── Route handlers ─────────────────────────────────────────────────────────────
 
