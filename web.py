@@ -11,44 +11,58 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-WEB_PORT      = int(os.environ.get("WEB_PORT", 8080))
-WEB_PASS      = os.environ["WEB_PASS"]
-LINK_SECRET   = os.environ.get("LINK_SECRET", secrets.token_hex(32))
-DOWNLOADS_DIR = Path(os.environ.get("DOWNLOADS_DIR",
+WEB_PORT        = int(os.environ.get("WEB_PORT", 8080))
+WEB_PASS        = os.environ["WEB_PASS"]
+WEB_ADMIN_PASS  = os.environ.get("WEB_ADMIN_PASS", "")   # if set, grants admin in web UI
+LINK_SECRET     = os.environ.get("LINK_SECRET", secrets.token_hex(32))
+DOWNLOADS_DIR   = Path(os.environ.get("DOWNLOADS_DIR",
     Path(__file__).parent / "downloads")).resolve()
 DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
-_HERE         = Path(__file__).parent
-HTML_DIR = _HERE / "html"
-STATIC_DIR    = _HERE / "static"
+_HERE      = Path(__file__).parent
+HTML_DIR   = _HERE / "html"
+STATIC_DIR = _HERE / "static"
 
 SESSION_TTL = 86400
 COOKIE_NAME = "fsid"
-_sessions: dict[str, float] = {}
+_sessions: dict[str, dict] = {}   # tok -> {"exp": float, "admin": bool}
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
-def _new_session() -> str:
+def _new_session(is_admin: bool = False) -> str:
     tok = secrets.token_hex(32)
-    _sessions[tok] = time.time() + SESSION_TTL
+    _sessions[tok] = {"exp": time.time() + SESSION_TTL, "admin": is_admin}
     return tok
 
 def _valid(tok: str | None) -> bool:
     if not tok: return False
-    exp = _sessions.get(tok)
-    if not exp: return False
-    if time.time() > exp:
+    s = _sessions.get(tok)
+    if not s: return False
+    if time.time() > s["exp"]:
         _sessions.pop(tok, None); return False
     return True
 
 def _check(req: web.Request) -> bool:
     return _valid(req.cookies.get(COOKIE_NAME))
 
-def _pw_ok(pw: str) -> bool:
+def _is_admin(req: web.Request) -> bool:
+    tok = req.cookies.get(COOKIE_NAME)
+    if not tok: return False
+    s = _sessions.get(tok)
+    return bool(s and time.time() <= s["exp"] and s.get("admin"))
+
+def _pw_ok(pw: str) -> tuple[bool, bool]:
+    """Returns (authenticated, is_admin)."""
     a = hashlib.sha256(pw.encode()).digest()
     b = hashlib.sha256(WEB_PASS.encode()).digest()
-    return secrets.compare_digest(a, b)
+    if secrets.compare_digest(a, b):
+        return True, False
+    if WEB_ADMIN_PASS:
+        c = hashlib.sha256(WEB_ADMIN_PASS.encode()).digest()
+        if secrets.compare_digest(a, c):
+            return True, True
+    return False, False
 
 def _safe(name: str) -> Path | None:
     try:
@@ -96,6 +110,7 @@ async def _stream(req: web.Request, path: Path, name: str) -> web.Response:
         pass
     return resp
 
+
 # ── Route handlers ─────────────────────────────────────────────────────────────
 
 async def handle_root(req: web.Request) -> web.Response:
@@ -105,8 +120,9 @@ async def handle_root(req: web.Request) -> web.Response:
 
 async def handle_login(req: web.Request) -> web.Response:
     data = await req.post()
-    if _pw_ok(data.get("pass", "")):
-        tok  = _new_session()
+    ok, is_admin = _pw_ok(data.get("pass", ""))
+    if ok:
+        tok  = _new_session(is_admin)
         resp = web.HTTPFound("/")
         resp.set_cookie(COOKIE_NAME, tok, max_age=SESSION_TTL,
                         httponly=True, samesite="Strict")
@@ -121,6 +137,11 @@ async def handle_logout(req: web.Request) -> web.Response:
     resp.del_cookie(COOKIE_NAME)
     return resp
 
+async def handle_session(req: web.Request) -> web.Response:
+    if not _check(req):
+        return web.json_response({"admin": False})
+    return web.json_response({"admin": _is_admin(req)})
+
 async def handle_files(req: web.Request) -> web.Response:
     if not _check(req):
         return web.json_response({"error": "unauthorized"}, status=401)
@@ -133,6 +154,54 @@ async def handle_files(req: web.Request) -> web.Response:
     except Exception as ex:
         return web.json_response({"error": str(ex)}, status=500)
     return web.json_response(files)
+
+async def handle_delete(req: web.Request) -> web.Response:
+    if not _check(req):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if not _is_admin(req):
+        return web.json_response({"error": "forbidden"}, status=403)
+    name = req.match_info["name"]
+    path = _safe(name)
+    if path is None:
+        raise web.HTTPNotFound()
+    try:
+        path.unlink()
+    except Exception as ex:
+        return web.json_response({"error": str(ex)}, status=500)
+    return web.json_response({"ok": True})
+
+async def handle_upload(req: web.Request) -> web.Response:
+    if not _check(req):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if not _is_admin(req):
+        return web.json_response({"error": "forbidden"}, status=403)
+    try:
+        reader   = await req.multipart()
+        field    = await reader.next()
+        if field is None or field.name != "file":
+            raise web.HTTPBadRequest()
+        filename = Path(field.filename or "upload").name
+        if not filename:
+            raise web.HTTPBadRequest()
+        dest = DOWNLOADS_DIR / filename
+        tmp  = dest.with_suffix(dest.suffix + ".part")
+        try:
+            with open(tmp, "wb") as f:
+                while True:
+                    chunk = await field.read_chunk(65536)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            tmp.rename(dest)
+        except Exception:
+            try: tmp.unlink()
+            except OSError: pass
+            raise
+    except web.HTTPException:
+        raise
+    except Exception as ex:
+        return web.json_response({"error": str(ex)}, status=500)
+    return web.json_response({"ok": True, "name": filename})
 
 async def handle_make_token(req: web.Request) -> web.Response:
     if not _check(req):
@@ -169,14 +238,17 @@ async def handle_static(req: web.Request) -> web.Response:
 
 def create_app() -> web.Application:
     app = web.Application()
-    app.router.add_get("/",                   handle_root)
-    app.router.add_post("/login",             handle_login)
-    app.router.add_post("/logout",            handle_logout)
-    app.router.add_get("/files",              handle_files)
-    app.router.add_get("/token/{name}",       handle_make_token)
-    app.router.add_get("/get/{token}/{name}", handle_token_download)
-    app.router.add_get("/dl/{name}",          handle_download)
-    app.router.add_get("/static/{name}",      handle_static)
+    app.router.add_get ("/",                   handle_root)
+    app.router.add_post("/login",              handle_login)
+    app.router.add_post("/logout",             handle_logout)
+    app.router.add_get ("/session",            handle_session)
+    app.router.add_get ("/files",              handle_files)
+    app.router.add_delete("/files/{name}",     handle_delete)
+    app.router.add_post("/upload",             handle_upload)
+    app.router.add_get ("/token/{name}",       handle_make_token)
+    app.router.add_get ("/get/{token}/{name}", handle_token_download)
+    app.router.add_get ("/dl/{name}",          handle_download)
+    app.router.add_get ("/static/{name}",      handle_static)
     return app
 
 async def start_web() -> None:

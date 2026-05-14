@@ -50,7 +50,7 @@ SF_SESSION_TTL    = 300
 BUSY_MSG          = "busy — /cancel first"
 
 ANSI_RE    = re.compile(r"\x1b\[[0-9;]*[mKHJA-Za-z]")
-TORRENT_RE = re.compile(r"^magnet:|\.torrent(\?|$)", re.I)
+TORRENT_RE = re.compile(r"^magnet:|\\.torrent(\\?|$)", re.I)
 
 SHELL_CMDS = {
     "ps":      "ps aux --sort=-%cpu | head -30",
@@ -251,13 +251,14 @@ async def _tgup(client, msg, path, status, *, silent=False):
         await _edit(status, f"`{name}` >2 GB → gofile…")
         link = await _gofile(path, status)
         if not silent:
-            await _edit(status, f"done\nfile: `{name}`\nsize: {fsize(size)}\nlink: {link}\ntime: {ftime(time.time()-t0)}")
+            await _edit(status,
+                        f"✓ `{name}`\n{fsize(size)}  ·  {ftime(time.time()-t0)}\n\n{link}")
         return
     await client.send_document(msg.chat.id, path,
                                caption=f"`{name}` — {fsize(size)}",
                                progress=_prog(f"↑ {name}", status, t0, ts))
     if not silent:
-        await _edit(status, f"done\nfile: `{name}`\nsize: {fsize(size)}\ntime: {ftime(time.time()-t0)}")
+        await _edit(status, f"✓ `{name}`\n{fsize(size)}  ·  {ftime(time.time()-t0)}")
 
 
 # ── HTTP download ──────────────────────────────────────────────────────────────
@@ -313,12 +314,12 @@ async def _upload(client, msg, path, status, do_tg, do_gf, t0):
         res.append("tg ✓")
     if do_gf:
         if do_tg: await _edit(status, f"↑ `{name}` → gofile…")
-        res.append(f"gofile: {await _gofile(path, status)}")
+        res.append(await _gofile(path, status))
     web = _web_link(name)
-    if web: res.append(f"web: {web}")
-    await _edit(status,
-                f"done\nfile: `{name}`\nsize: {fsize(size)}\n"
-                f"time: {ftime(time.time()-t0)}\n" + "\n".join(res))
+    if web: res.append(web)
+    parts = [f"✓ `{name}`", f"{fsize(size)}  ·  {ftime(time.time()-t0)}"]
+    if res: parts += [""] + res
+    await _edit(status, "\n".join(parts))
 
 
 # ── Download + optional re-upload ─────────────────────────────────────────────
@@ -337,12 +338,11 @@ async def _dl(*, client, msg, status, uid, name, dest, t0,
             transfers[uid]["type"] = "upload"
             await _upload(client, msg, dest, status, do_tg, do_gf, time.time())
         else:
-            sz = os.path.getsize(dest) if os.path.exists(dest) else 0
+            sz  = os.path.getsize(dest) if os.path.exists(dest) else 0
             web = _web_link(name)
-            summary = (f"done\nfile: `{name}`\nsize: {fsize(sz)}\n"
-                       f"path: `{dest}`\ntime: {ftime(time.time()-t0)}")
-            if web: summary += f"\nweb:  {web}"
-            await _edit(status, summary)
+            parts = [f"✓ `{name}`", f"{fsize(sz)}  ·  {ftime(time.time()-t0)}"]
+            if web: parts += ["", web]
+            await _edit(status, "\n".join(parts))
     except asyncio.CancelledError:
         await _edit(status, f"cancelled: `{name}`"); _rm(dest)
     except Exception as e:
@@ -363,8 +363,8 @@ async def _sfexec(uid, status, path, project, folder):
         try:
             link = await _sfup(status, path, project, folder)
             await _edit(status,
-                        f"done\nfile: `{os.path.basename(path)}`\n"
-                        f"{project}/{folder}\nlink: {link}")
+                        f"✓ `{os.path.basename(path)}`\n"
+                        f"sf · {project}/{folder}\n\n{link}")
         except asyncio.CancelledError:
             await _edit(status, f"cancelled: `{os.path.basename(path)}`")
         except Exception as e:
@@ -438,7 +438,7 @@ async def cmd_revoke(_, msg):
 async def cmd_help(_, msg):
     await msg.reply("**transfers:** /ul /dl /tr /gf /sf /cancel\n"
                     "**shell:** /sh /stdin /ps /top /free /uptime /whoami /netstat\n"
-                    "**fs:** /ls /cat /rm /mv /cp\n"
+                    "**fs:** /ls /cat /rm /mv /cp /del\n"
                     "**info:** /ping /status  **auth:** /allow /revoke", quote=True)
 
 @app.on_message(filters.command("ping"))
@@ -572,11 +572,11 @@ async def cmd_gofile(_, msg):
     path = a[0]
     if _sensitive(path): await msg.reply("denied", quote=True); return
     if not os.path.isfile(path): await msg.reply(f"not found: `{path}`", quote=True); return
-    size = os.path.getsize(path)
+    size   = os.path.getsize(path)
     status = await msg.reply(f"↑ `{os.path.basename(path)}`  gofile…", quote=True)
     try:
         link = await _gofile(path, status)
-        await _edit(status, f"done\nsize: {fsize(size)}\nlink: {link}")
+        await _edit(status, f"✓ `{os.path.basename(path)}`\n{fsize(size)}\n\n{link}")
     except Exception as e:
         await _edit(status, f"failed: `{e}`")
 
@@ -733,6 +733,23 @@ async def cmd_rm(_, msg):
             shutil.rmtree(t); await msg.reply(f"✓ `{t}`", quote=True)
         else:
             os.remove(t); await msg.reply(f"✓ `{t}`", quote=True)
+    except Exception as e:
+        await msg.reply(f"error: `{e}`", quote=True)
+
+@app.on_message(filters.command(["del", "delete"]))
+@superauth
+async def cmd_del(_, msg):
+    """Delete a file from the downloads directory. Superuser only."""
+    a = _args(msg)
+    if not a:
+        await msg.reply("usage: /del <filename>", quote=True); return
+    name = Path(a[0]).name   # strip any path traversal
+    path = DOWNLOADS_DIR / name
+    if not path.exists() or not path.is_file():
+        await msg.reply(f"not found: `{name}`", quote=True); return
+    try:
+        path.unlink()
+        await msg.reply(f"✓ deleted `{name}`", quote=True)
     except Exception as e:
         await msg.reply(f"error: `{e}`", quote=True)
 
