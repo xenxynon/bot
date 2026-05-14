@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>fileserv</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  height: 56px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: stretch;
+}
+
+.nav-brand {
+  display: flex; align-items: center;
+  padding: 0 24px;
+  border-right: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; letter-spacing: -.01em;
+  color: var(--text); gap: 10px;
+  cursor: default; user-select: none; flex-shrink: 0;
+}
+
+.nav-brand-dot {
+  width: 7px; height: 7px;
+  background: var(--accent); border-radius: 50%;
+  flex-shrink: 0; transition: transform .2s;
+}
+
+.nav-brand:hover .nav-brand-dot { transform: scale(1.6); }
+
+.nav-search {
+  flex: 1; display: flex; align-items: center;
+  padding: 0 20px; gap: 12px;
+  border-right: 1px solid var(--border);
+}
+
+.nav-search svg { flex-shrink: 0; stroke: var(--sub); }
+
+#q {
+  flex: 1; background: transparent; border: none; outline: none;
+  font-family: inherit; font-size: 14px; color: var(--text); min-width: 0;
+}
+#q::placeholder { color: var(--subtle); }
+
+.nav-actions {
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 8px; margin-left: auto;
+}
+
+.nav-btn {
+  height: 34px; padding: 0 14px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--sub); font-family: inherit; font-size: 12px;
+  font-weight: 500; cursor: pointer;
+  transition: border-color .1s, color .1s, background .1s;
+  white-space: nowrap; letter-spacing: .01em;
+}
+.nav-btn:hover { border-color: var(--sub); color: var(--text); }
+.nav-btn.icon-only { width: 34px; padding: 0; display:flex; align-items:center; justify-content:center; font-size:14px; }
+
+.filter-strip {
+  height: 42px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 2px;
+  overflow-x: auto; scrollbar-width: none;
+  background: var(--bg); flex-shrink: 0;
+}
+.filter-strip::-webkit-scrollbar { display: none; }
+
+.ftab {
+  height: 26px; padding: 0 12px;
+  background: transparent; border: 1px solid transparent;
+  color: var(--sub); font-family: inherit; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all .1s;
+  display: flex; align-items: center; gap: 7px;
+  white-space: nowrap; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.ftab:hover { color: var(--text); }
+.ftab.on { color: var(--text); background: var(--surface); border-color: var(--border); }
+.ftab .n { font-size: 10px; color: var(--subtle); font-weight: 400; }
+.ftab.on .n { color: var(--sub); }
+
+.body { display: flex; min-height: calc(100vh - 56px - 42px - 32px); }
+
+.sidebar {
+  width: 200px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 28px 0;
+  position: sticky; top: calc(56px + 42px);
+  height: calc(100vh - 56px - 42px - 32px);
+  overflow-y: auto; background: var(--bg);
+}
+
+.s-section { margin-bottom: 28px; }
+
+.s-heading {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--subtle); padding: 0 20px; margin-bottom: 10px;
+}
+
+.s-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 3px 20px;
+}
+.s-key { font-size: 13px; color: var(--sub); }
+.s-val { font-size: 13px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.s-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+.s-ext {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 20px; background: transparent; border: none;
+  width: 100%; cursor: pointer; font-family: inherit;
+  transition: background .08s; -webkit-tap-highlight-color: transparent;
+}
+.s-ext:hover { background: var(--surface); }
+.s-ext.on { background: var(--surface); }
+.s-ext-name { font-size: 13px; color: var(--sub); font-weight: 400; text-align: left; }
+.s-ext.on .s-ext-name { color: var(--text); font-weight: 500; }
+.s-ext-n { font-size: 11px; color: var(--subtle); }
+
+.table-area { flex: 1; min-width: 0; }
+
+.thead {
+  display: grid; grid-template-columns: 1fr 96px 140px 80px;
+  align-items: center; height: 38px; padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: calc(56px + 42px); z-index: 10;
+}
+
+.th {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--subtle); background: transparent; border: none;
+  padding: 0; cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  font-family: inherit; transition: color .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.th:hover { color: var(--sub); }
+.th.on { color: var(--text); }
+.th-r { justify-content: flex-end; }
+.th-c { justify-content: center; cursor: default; }
+.th .arr { font-size: 9px; }
+
+.frow {
+  display: grid; grid-template-columns: 1fr 96px 140px 80px;
+  align-items: center; height: 56px; padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  transition: background .07s;
+}
+.frow:last-child { border-bottom: none; }
+.frow:hover { background: var(--surface); }
+
+.fname-cell { display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+.badge {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: 3px 7px; border: 1px solid;
+  flex-shrink: 0; line-height: 1;
+}
+.b-arc { color: #f97316; border-color: rgba(249,115,22,.35); background: rgba(249,115,22,.07); }
+.b-img { color: #a855f7; border-color: rgba(168,85,247,.35); background: rgba(168,85,247,.07); }
+.b-pkg { color: #22c55e; border-color: rgba(34,197,94,.35);  background: rgba(34,197,94,.07);  }
+.b-txt { color: #3b82f6; border-color: rgba(59,130,246,.35); background: rgba(59,130,246,.07); }
+.b-def { color: var(--sub); border-color: var(--border); background: var(--surface); }
+
+.fname-info { min-width: 0; }
+.fname-main {
+  font-size: 14px; font-weight: 400; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fname-meta { font-size: 11px; color: var(--subtle); margin-top: 1px; display: none; }
+
+.fsize {
+  font-size: 12px; color: var(--sub);
+  text-align: right; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.fdate { font-size: 11px; color: var(--subtle); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.fact { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+
+.act-btn {
+  width: 30px; height: 30px;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--sub); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .1s; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.act-btn:hover { border-color: var(--sub); color: var(--text); background: var(--surface); }
+.act-btn:active { transform: scale(.9); }
+.act-btn.ok {
+  color: var(--green); border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 8%, transparent);
+  pointer-events: none;
+}
+.act-btn.spin { animation: spin .7s linear infinite; pointer-events: none; color: var(--subtle); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty { padding: 100px 24px; text-align: center; }
+.empty-num {
+  font-size: clamp(80px, 15vw, 140px); font-weight: 600;
+  letter-spacing: -.06em; color: var(--border);
+  line-height: 1; margin-bottom: 16px;
+}
+.empty-msg { font-size: 15px; color: var(--sub); }
+
+.statusbar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 32px; border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 95%, transparent);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 20px; z-index: 50;
+}
+.sb-stat { font-size: 11px; color: var(--subtle); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sb-stat b { color: var(--sub); font-weight: 500; }
+.sb-egg {
+  margin-left: auto; font-size: 11px; color: var(--subtle);
+  font-style: italic; transition: opacity .4s;
+}
+
+#toast {
+  position: fixed; bottom: 52px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--text); color: var(--bg);
+  font-size: 12px; font-weight: 500;
+  padding: 9px 16px; white-space: nowrap;
+  z-index: 999; pointer-events: none; opacity: 0;
+  transition: opacity .15s, transform .2s cubic-bezier(.34,1.4,.64,1);
+  letter-spacing: .01em;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 640px) {
+  .sidebar { display: none; }
+  .body { display: block; }
+  .nav-brand { padding: 0 16px; }
+  .nav-search { padding: 0 14px; }
+  .nav-actions { padding: 0 12px; gap: 6px; }
+  .filter-strip { padding: 0 12px; }
+  .thead { display: none; }
+  .frow { grid-template-columns: 1fr auto; height: auto; padding: 14px 16px; gap: 12px; }
+  .fsize, .fdate { display: none; }
+  .fname-meta { display: block !important; }
+  .act-btn { width: 36px; height: 36px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand" id="brand">
+    <span class="nav-brand-dot"></span>
+    fileserv
+  </div>
+  <div class="nav-search">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="q" type="search" placeholder="Search…" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="nav-actions">
+    <button class="nav-btn icon-only" onclick="load()" title="Refresh">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </button>
+    <button class="nav-btn icon-only" onclick="toggleTheme()" title="Toggle theme" id="theme-btn">◐</button>
+    <button class="nav-btn" onclick="doLogout()">Sign out</button>
+  </div>
+</nav>
+
+<div class="filter-strip" id="filter-strip"></div>
+
+<div class="body">
+  <aside class="sidebar">
+    <div class="s-section">
+      <div class="s-heading">Vault</div>
+      <div class="s-row"><span class="s-key">Files</span><span class="s-val" id="d-cnt">—</span></div>
+      <div class="s-row"><span class="s-key">Size</span><span class="s-val" id="d-sz">—</span></div>
+    </div>
+    <hr class="s-divider">
+    <div class="s-section">
+      <div class="s-heading">Type</div>
+      <div id="s-ext-list"></div>
+    </div>
+  </aside>
+
+  <div class="table-area">
+    <div class="thead">
+      <button class="th" data-col="name">Name <span class="arr" id="arr-name"></span></button>
+      <button class="th th-r" data-col="size">Size <span class="arr" id="arr-size"></span></button>
+      <button class="th" data-col="mtime" style="padding-left:8px">Modified <span class="arr" id="arr-mtime"></span></button>
+      <div class="th th-c">Get</div>
+    </div>
+    <div id="rows"></div>
+  </div>
+</div>
+
+<div class="statusbar">
+  <div class="sb-stat"><b id="sb-count">0</b> files</div>
+  <div class="sb-stat"><b id="sb-size">—</b> total</div>
+  <div class="sb-stat" id="sb-shown-wrap" style="display:none"><b id="sb-shown">—</b> shown</div>
+  <div class="sb-egg" id="sb-egg"></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/static/theme.js"></script>
+<script>
+let _all = [], _ext = null, _sort = { col: 'mtime', dir: -1 };
+
+const fsize = b => {
+  const u = ['B','KB','MB','GB','TB']; let i = 0;
+  while (b >= 1024 && i < 4) { b /= 1024; i++; }
+  return b.toFixed(i ? 1 : 0) + '\u202f' + u[i];
+};
+
+const fdate = ts => {
+  const d = new Date(ts * 1000), n = new Date();
+  if (d.toDateString() === n.toDateString())
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (n - d < 7 * 86400e3)
+    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+const gext = n => { const i = n.lastIndexOf('.'); return i > 0 ? n.slice(i+1).toLowerCase() : ''; };
+
+const badgeCls = e => {
+  if (['zip','gz','xz','zst','tar','7z','bz2','lz4','br','rar'].includes(e)) return 'b-arc';
+  if (['img','iso','bin','raw','dmg','rom','dat','elf','vhd'].includes(e))    return 'b-img';
+  if (['apk','ota','deb','rpm','pkg','exe','msi'].includes(e))                return 'b-pkg';
+  if (['txt','log','md','json','xml','sh','yaml','toml','cfg','py','js'].includes(e)) return 'b-txt';
+  return 'b-def';
+};
+
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+let _tt;
+function toast(msg, dur = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ── easter eggs ───────────────────────────────────────────────────────────────
+const EGGS = [
+  "the cloud is just someone else's downloads folder",
+  "your files are safe. probably.",
+  "bandwidth: consumed. regrets: none.",
+  "beep boop, serving files",
+  "server uptime: longer than my last relationship",
+  "404: chill not found",
+  "these bytes were hand-selected for freshness",
+  "compressing sadness... done.",
+  "rm -rf /feelings",
+  "it's not a bug, it's a file",
+  "current vibe: S3 but worse",
+  "a rubber duck helped write this",
+  "works on my machine \\_(ツ)_/",
+  "no files were harmed in this serving",
+  "estimated time: soon™",
+  "powered by caffeine and spite",
+  "sudo make me a sandwich",
+  "git blame: everyone else",
+  "this message appears every ~18 seconds",
+];
+
+const DL_QUIPS = [
+  '↓ snagged', '↓ yoink', '↓ got it', '↓ yours now',
+  '↓ taken', '↓ handled', '↓ done', '↓ done', '↓ done', '↓ done',
+];
+
+const SEARCH_EGGS = {
+  'rick':     '🎵 never gonna give you up',
+  'sudo':     '⚡ permission denied, nice try',
+  'rm -rf':   '💀 bold.',
+  'help':     "it's just files. you'll figure it out.",
+  'free':     'nothing is free. nothing.',
+  'hack':     '🎩 sir this is a file server',
+  'porn':     '👀 really now',
+  '42':       'the answer was in the downloads all along',
+  'minecraft':'⛏️ wrong server. literally.',
+  'todo':     '📋 noted. still not done.',
+  'money':    '💸 left pocket. right pocket. same amount.',
+  'why':      'because someone had to.',
+  'test':     'this is not a test.',
+};
+
+const sbEgg = document.getElementById('sb-egg');
+let eggIdx = Math.floor(Math.random() * EGGS.length);
+function cycleEgg() {
+  if (Math.random() > 0.45) return;
+  sbEgg.style.opacity = '0';
+  setTimeout(() => {
+    sbEgg.textContent = EGGS[eggIdx % EGGS.length];
+    eggIdx++;
+    sbEgg.style.opacity = '1';
+  }, 400);
+}
+setInterval(cycleEgg, 18000);
+setTimeout(cycleEgg, 5000);
+
+// konami
+const KONAMI = [38,38,40,40,37,39,37,39,66,65];
+let _kb = [];
+document.addEventListener('keydown', e => {
+  _kb.push(e.keyCode);
+  if (_kb.length > KONAMI.length) _kb.shift();
+  if (JSON.stringify(_kb) === JSON.stringify(KONAMI)) {
+    toast('🎮 +30 lives granted. they do nothing.', 4000);
+    _kb = [];
+  }
+});
+
+// brand click
+let _bc = 0, _bt;
+document.getElementById('brand').addEventListener('click', () => {
+  _bc++;
+  clearTimeout(_bt);
+  _bt = setTimeout(() => _bc = 0, 1000);
+  if (_bc === 5) { toast('🐣 secret found. prize: nothing.'); _bc = 0; }
+});
+
+// ── data ──────────────────────────────────────────────────────────────────────
+async function load() {
+  try {
+    const r = await fetch('/files');
+    if (r.status === 401) { location.href = '/'; return; }
+    _all = await r.json();
+  } catch { return; }
+  buildSidebar(); buildTabs(); render();
+}
+
+function extMap() {
+  const m = {};
+  _all.forEach(f => { const e = gext(f.name) || 'other'; m[e] = (m[e]||0) + 1; });
+  return Object.entries(m).sort((a,b) => b[1] - a[1]);
+}
+
+function buildSidebar() {
+  const total = _all.reduce((s,f) => s + f.size, 0);
+  document.getElementById('d-cnt').textContent = _all.length;
+  document.getElementById('d-sz').textContent = fsize(total);
+  document.getElementById('s-ext-list').innerHTML =
+    `<button class="s-ext${_ext===null?' on':''}" onclick="setExt(null)">
+       <span class="s-ext-name">All</span><span class="s-ext-n">${_all.length}</span>
+     </button>` +
+    extMap().map(([e,n]) =>
+      `<button class="s-ext${_ext===e?' on':''}" onclick="setExt('${esc(e)}')">
+         <span class="s-ext-name">.${esc(e)}</span><span class="s-ext-n">${n}</span>
+       </button>`
+    ).join('');
+}
+
+function buildTabs() {
+  document.getElementById('filter-strip').innerHTML =
+    `<button class="ftab${_ext===null?' on':''}" onclick="setExt(null)">All <span class="n">${_all.length}</span></button>` +
+    extMap().map(([e,n]) =>
+      `<button class="ftab${_ext===e?' on':''}" onclick="setExt('${esc(e)}')">.${esc(e)} <span class="n">${n}</span></button>`
+    ).join('');
+}
+
+function setExt(e) { _ext = e; buildSidebar(); buildTabs(); render(); }
+
+const COPY_SVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const DL_SVG    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const CHECK_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const SPIN_SVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22" opacity=".25"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76" opacity=".8"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07" opacity=".15"/><line x1="2" y1="12" x2="6" y2="12" opacity=".55"/><line x1="18" y1="12" x2="22" y2="12" opacity=".1"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24" opacity=".35"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93" opacity=".95"/></svg>`;
+
+function render() {
+  const q = document.getElementById('q').value.toLowerCase().trim();
+  if (q.length > 1) {
+    for (const [k, v] of Object.entries(SEARCH_EGGS)) {
+      if (q.includes(k)) { toast(v, 2800); break; }
+    }
+  }
+
+  let rows = _all.filter(f =>
+    (_ext ? gext(f.name) === _ext : true) &&
+    (!q || f.name.toLowerCase().includes(q))
+  );
+
+  const { col, dir } = _sort;
+  rows.sort((a,b) => {
+    let av = a[col], bv = b[col];
+    if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+    return av < bv ? -dir : av > bv ? dir : 0;
+  });
+
+  const total = _all.reduce((s,f) => s + f.size, 0);
+  document.getElementById('sb-count').textContent = _all.length;
+  document.getElementById('sb-size').textContent = fsize(total);
+  const sw = document.getElementById('sb-shown-wrap');
+  if (rows.length < _all.length) {
+    sw.style.display = '';
+    document.getElementById('sb-shown').textContent = rows.length;
+  } else sw.style.display = 'none';
+
+  ['name','size','mtime'].forEach(c => {
+    const el = document.getElementById('arr-' + c);
+    const th = document.querySelector(`[data-col="${c}"]`);
+    if (c === col) { th.classList.add('on'); el.textContent = dir > 0 ? ' ↑' : ' ↓'; }
+    else           { th.classList.remove('on'); el.textContent = ''; }
+  });
+
+  const wrap = document.getElementById('rows');
+  if (!rows.length) {
+    wrap.innerHTML = `
+      <div class="empty">
+        <div class="empty-num">${q ? '404' : '000'}</div>
+        <div class="empty-msg">${q ? 'nothing matches &ldquo;' + esc(q) + '&rdquo;' : 'no files yet'}</div>
+      </div>`;
+    return;
+  }
+
+  wrap.innerHTML = rows.map((f, i) => {
+    const e = gext(f.name);
+    return `<div class="frow">
+      <div class="fname-cell">
+        <span class="badge ${badgeCls(e)}">${esc(e)||'?'}</span>
+        <div class="fname-info">
+          <div class="fname-main" title="${esc(f.name)}">${esc(f.name)}</div>
+          <div class="fname-meta">${fsize(f.size)} &middot; ${fdate(f.mtime)}</div>
+        </div>
+      </div>
+      <div class="fsize">${fsize(f.size)}</div>
+      <div class="fdate" style="padding-left:8px">${fdate(f.mtime)}</div>
+      <div class="fact">
+        <button class="act-btn" id="cb${i}" onclick="copyLink('${esc(f.name)}','cb${i}')" title="Copy link">${COPY_SVG}</button>
+        <button class="act-btn" id="db${i}" onclick="dl('${esc(f.name)}','db${i}')" title="Download">${DL_SVG}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.querySelectorAll('.th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const c = th.dataset.col;
+    _sort = { col: c, dir: _sort.col === c ? -_sort.dir : -1 };
+    render();
+  });
+});
+
+document.getElementById('q').addEventListener('input', render);
+
+async function copyLink(name, id) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  try {
+    const r = await fetch('/token/' + encodeURIComponent(name));
+    if (!r.ok) { toast('failed to get link'); return; }
+    const { url } = await r.json();
+    await navigator.clipboard.writeText(location.origin + url);
+    btn.classList.add('ok'); btn.innerHTML = CHECK_SVG;
+    toast('link copied to clipboard');
+    setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = COPY_SVG; }, 2500);
+  } catch { toast('clipboard unavailable'); }
+}
+
+function dl(name, id) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  btn.classList.add('spin'); btn.innerHTML = SPIN_SVG;
+  const a = document.createElement('a');
+  a.href = '/dl/' + encodeURIComponent(name);
+  a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => {
+    btn.classList.remove('spin'); btn.classList.add('ok'); btn.innerHTML = CHECK_SVG;
+    const q = DL_QUIPS[Math.floor(Math.random() * DL_QUIPS.length)];
+    toast(`${q}: ${name.length > 36 ? name.slice(0,36)+'…' : name}`);
+    setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = DL_SVG; }, 3000);
+  }, 700);
+}
+
+async function doLogout() {
+  await fetch('/logout', { method: 'POST' });
+  location.href = '/';
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
