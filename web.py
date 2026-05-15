@@ -5,6 +5,7 @@ import mimetypes
 import os
 import secrets
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -13,11 +14,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-WEB_PORT        = int(os.environ.get("WEB_PORT", 8080))
-WEB_PASS        = os.environ["WEB_PASS"]
-WEB_ADMIN_PASS  = os.environ.get("WEB_ADMIN_PASS", "")
-LINK_SECRET     = os.environ.get("LINK_SECRET", secrets.token_hex(32))
-DOWNLOADS_DIR   = Path(os.environ.get("DOWNLOADS_DIR",
+WEB_PORT       = int(os.environ.get("WEB_PORT", 8080))
+WEB_PASS       = os.environ["WEB_PASS"]
+WEB_ADMIN_PASS = os.environ.get("WEB_ADMIN_PASS", "")
+LINK_SECRET    = os.environ.get("LINK_SECRET", secrets.token_hex(32))
+DOWNLOADS_DIR  = Path(os.environ.get("DOWNLOADS_DIR",
     Path(__file__).parent / "downloads")).resolve()
 DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -72,27 +73,27 @@ def _new_session(is_admin: bool = False, uid=None) -> str:
     _sessions[tok] = {"exp": time.time() + SESSION_TTL, "admin": is_admin, "uid": uid}
     return tok
 
-def _valid(tok) -> bool:
-    if not tok: return False
+def _get_session(req: web.Request) -> dict | None:
+    tok = req.cookies.get(COOKIE_NAME)
+    if not tok:
+        return None
     s = _sessions.get(tok)
-    if not s: return False
+    if not s:
+        return None
     if time.time() > s["exp"]:
-        _sessions.pop(tok, None); return False
-    return True
+        _sessions.pop(tok, None)
+        return None
+    return s
 
 def _check(req: web.Request) -> bool:
-    return _valid(req.cookies.get(COOKIE_NAME))
+    return _get_session(req) is not None
 
 def _is_admin(req: web.Request) -> bool:
-    tok = req.cookies.get(COOKIE_NAME)
-    if not tok: return False
-    s = _sessions.get(tok)
-    return bool(s and time.time() <= s["exp"] and s.get("admin"))
+    s = _get_session(req)
+    return bool(s and s.get("admin"))
 
 def _session_uid(req: web.Request):
-    tok = req.cookies.get(COOKIE_NAME)
-    if not tok: return None
-    s = _sessions.get(tok)
+    s = _get_session(req)
     return s.get("uid") if s else None
 
 def _pw_ok(pw: str) -> tuple:
@@ -145,12 +146,15 @@ def _get_superusers() -> set:
         return set()
 
 def _uid_can_delete(uid) -> bool:
-    if uid is None: return False
-    if uid in _get_superusers(): return True
+    if uid is None:
+        return False
+    if uid in _get_superusers():
+        return True
     return uid in _load_allowed()
 
 def _can_delete(req: web.Request) -> bool:
-    if _is_admin(req): return True
+    if _is_admin(req):
+        return True
     return _uid_can_delete(_session_uid(req))
 
 def _can_write(req: web.Request) -> bool:
@@ -179,7 +183,7 @@ def _tpl(name: str, **ctx) -> str:
 
 async def _stream(req: web.Request, path: Path, name: str) -> web.Response:
     ct, _ = mimetypes.guess_type(str(path))
-    resp  = web.StreamResponse(headers={
+    resp = web.StreamResponse(headers={
         "Content-Disposition": f'attachment; filename="{name}"',
         "Content-Type":        ct or "application/octet-stream",
         "Content-Length":      str(path.stat().st_size),
@@ -207,7 +211,8 @@ async def handle_login(req):
     uid = None
     try:
         raw = data.get("uid", "")
-        if raw: uid = int(raw)
+        if raw:
+            uid = int(raw)
     except Exception:
         pass
     if ok:
@@ -240,7 +245,7 @@ async def handle_session(req):
 async def handle_files(req):
     if not _check(req):
         return web.json_response({"error": "unauthorized"}, status=401)
-    rel = req.rel_url.query.get("path", "")
+    rel  = req.rel_url.query.get("path", "")
     base = _safe_dir(rel)
     if base is None or not base.exists():
         return web.json_response({"error": "not found"}, status=404)
@@ -265,7 +270,8 @@ async def handle_delete(req):
         return web.json_response({"error": "forbidden"}, status=403)
     name = req.match_info["name"]
     path = _safe(name)
-    if path is None: raise web.HTTPNotFound()
+    if path is None:
+        raise web.HTTPNotFound()
     try:
         path.unlink()
     except Exception as ex:
@@ -278,14 +284,16 @@ async def handle_rename(req):
     if not _can_write(req):
         return web.json_response({"error": "forbidden"}, status=403)
     try:
-        body = await req.json()
+        body     = await req.json()
         old_name = Path(body.get("old", "")).name
         new_name = Path(body.get("new", "")).name
-        if not old_name or not new_name: raise ValueError
+        if not old_name or not new_name:
+            raise ValueError
     except Exception:
         return web.json_response({"error": "bad request"}, status=400)
     src = _safe(old_name)
-    if src is None: raise web.HTTPNotFound()
+    if src is None:
+        raise web.HTTPNotFound()
     dst = DOWNLOADS_DIR / new_name
     if dst.exists():
         return web.json_response({"error": "name already taken"}, status=409)
@@ -301,23 +309,28 @@ async def handle_upload(req):
     if not _can_write(req):
         return web.json_response({"error": "forbidden"}, status=403)
     try:
-        reader  = await req.multipart()
-        field   = await reader.next()
-        if field is None or field.name != "file": raise web.HTTPBadRequest()
+        reader   = await req.multipart()
+        field    = await reader.next()
+        if field is None or field.name != "file":
+            raise web.HTTPBadRequest()
         filename = Path(field.filename or "upload").name
-        if not filename: raise web.HTTPBadRequest()
+        if not filename:
+            raise web.HTTPBadRequest()
         dest = DOWNLOADS_DIR / filename
         tmp  = dest.with_suffix(dest.suffix + ".part")
         try:
             with open(tmp, "wb") as f:
                 while True:
                     chunk = await field.read_chunk(65536)
-                    if not chunk: break
+                    if not chunk:
+                        break
                     f.write(chunk)
             tmp.rename(dest)
         except Exception:
-            try: tmp.unlink()
-            except OSError: pass
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
             raise
     except web.HTTPException:
         raise
@@ -325,43 +338,84 @@ async def handle_upload(req):
         return web.json_response({"error": str(ex)}, status=500)
     return web.json_response({"ok": True, "name": filename})
 
+def _start_aria2c(target: str) -> int:
+    """Spawn aria2c with a magnet link, .torrent URL, or local .torrent path. Returns PID."""
+    cmd = ["aria2c", "--dir", str(DOWNLOADS_DIR), "--daemon=false",
+           "--quiet=true", "--max-connection-per-server=4",
+           "--split=4", "--seed-time=0", target]
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return proc.pid
+
 async def handle_torrent(req):
+    """Accept a magnet link, a .torrent URL (JSON), or a .torrent file (multipart)."""
     if not _check(req):
         return web.json_response({"error": "unauthorized"}, status=401)
     if not get_flag("torrent_enabled", False):
         return web.json_response({"error": "torrent downloads are disabled"}, status=403)
+
+    ct = req.content_type or ""
+
+    # ── multipart: .torrent file upload ───────────────────────────────────────
+    if "multipart" in ct:
+        try:
+            reader = await req.multipart()
+            field  = await reader.next()
+            if field is None or field.name != "file":
+                raise ValueError("missing file field")
+            data = await field.read(decode=True)
+            if not data:
+                raise ValueError("empty file")
+        except Exception as ex:
+            return web.json_response({"error": str(ex)}, status=400)
+        fd, tmp_path = tempfile.mkstemp(suffix=".torrent")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+            pid = _start_aria2c(tmp_path)
+        except FileNotFoundError:
+            return web.json_response({"error": "aria2c not found on server"}, status=500)
+        except Exception as ex:
+            return web.json_response({"error": str(ex)}, status=500)
+        return web.json_response({"ok": True, "pid": pid})
+
+    # ── JSON body: magnet link or .torrent URL ────────────────────────────────
     try:
         body = await req.json()
-        uri = (body.get("uri") or "").strip()
-        if not uri: raise ValueError
+        uri  = (body.get("uri") or "").strip()
+        if not uri:
+            raise ValueError
     except Exception:
         return web.json_response({"error": "bad request"}, status=400)
-    is_magnet  = uri.lower().startswith("magnet:")
+
+    is_magnet      = uri.lower().startswith("magnet:")
     is_torrent_url = uri.lower().endswith(".torrent")
     if not (is_magnet or is_torrent_url):
         return web.json_response({"error": "not a magnet link or .torrent URL"}, status=400)
+
     try:
-        cmd = ["aria2c", "--dir", str(DOWNLOADS_DIR), "--daemon=false",
-               "--quiet=true", "--max-connection-per-server=4",
-               "--split=4", "--seed-time=0", uri]
-        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return web.json_response({"ok": True, "pid": proc.pid})
+        pid = _start_aria2c(uri)
+        return web.json_response({"ok": True, "pid": pid})
     except FileNotFoundError:
         return web.json_response({"error": "aria2c not found on server"}, status=500)
     except Exception as ex:
         return web.json_response({"error": str(ex)}, status=500)
 
 async def handle_flag_get(req):
-    if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
-    if not _is_admin(req): return web.json_response({"error": "forbidden"}, status=403)
+    if not _check(req):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if not _is_admin(req):
+        return web.json_response({"error": "forbidden"}, status=403)
     return web.json_response(dict(_flags_cache))
 
 async def handle_flag_set(req):
-    if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
-    if not _is_admin(req): return web.json_response({"error": "forbidden"}, status=403)
+    if not _check(req):
+        return web.json_response({"error": "unauthorized"}, status=401)
+    if not _is_admin(req):
+        return web.json_response({"error": "forbidden"}, status=403)
     try:
         body = await req.json()
-        if not isinstance(body, dict): raise ValueError
+        if not isinstance(body, dict):
+            raise ValueError
     except Exception:
         return web.json_response({"error": "bad request"}, status=400)
     for k, v in body.items():
@@ -369,23 +423,29 @@ async def handle_flag_set(req):
     return web.json_response({"ok": True, "flags": dict(_flags_cache)})
 
 async def handle_make_token(req):
-    if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
+    if not _check(req):
+        return web.json_response({"error": "unauthorized"}, status=401)
     name = req.match_info["name"]
-    if _safe(name) is None: raise web.HTTPNotFound()
+    if _safe(name) is None:
+        raise web.HTTPNotFound()
     return web.json_response({"url": f"/get/{make_dl_token(name)}/{name}"})
 
 async def handle_token_download(req):
     tok, name = req.match_info["token"], req.match_info["name"]
-    if not verify_dl_token(tok, name): raise web.HTTPForbidden()
+    if not verify_dl_token(tok, name):
+        raise web.HTTPForbidden()
     path = _safe(name)
-    if path is None: raise web.HTTPNotFound()
+    if path is None:
+        raise web.HTTPNotFound()
     return await _stream(req, path, name)
 
 async def handle_download(req):
-    if not _check(req): raise web.HTTPFound("/")
+    if not _check(req):
+        raise web.HTTPFound("/")
     name = req.match_info["name"]
     path = _safe(name)
-    if path is None: raise web.HTTPNotFound()
+    if path is None:
+        raise web.HTTPNotFound()
     return await _stream(req, path, name)
 
 async def handle_static(req):
