@@ -99,6 +99,48 @@ body {
 .icon-btn:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface); }
 .icon-btn:active { transform: scale(.92); }
 
+/* User avatar button */
+.user-btn {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--surface); border: 1px solid var(--border);
+  cursor: pointer; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: var(--sub);
+  font-family: 'IBM Plex Mono', monospace;
+  transition: border-color var(--t); flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.user-btn:hover { border-color: var(--accent); }
+.user-btn img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Super-user switch modal */
+.su-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; animation: fadeIn .12s ease;
+}
+.su-panel {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); width: min(340px, 100%);
+  box-shadow: 0 8px 40px rgba(0,0,0,.12);
+  animation: slideUp .18s cubic-bezier(.34,1,.64,1);
+}
+.su-head { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--border); }
+.su-title { font-size:12px; font-weight:600; color:var(--text); font-family:'IBM Plex Mono',monospace; }
+.su-close { width:24px; height:24px; border-radius:var(--radius-sm); background:none; border:1px solid var(--border); color:var(--sub); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:all var(--t); }
+.su-close:hover { border-color:var(--border-strong); color:var(--text); }
+.su-body { padding:14px; display:flex; flex-direction:column; gap:10px; }
+.su-info { font-size:12px; color:var(--sub); font-family:'IBM Plex Mono',monospace; }
+.su-input { width:100%; height:38px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:13px; padding:0 10px; outline:none; transition:border-color var(--t); }
+.su-input:focus { border-color:var(--accent); }
+.su-actions { display:flex; gap:8px; }
+.su-error { font-size:11px; color:var(--red); font-family:'IBM Plex Mono',monospace; display:none; }
+
+/* Owner badge on file rows */
+.owner-tag { font-size:10px; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-left:4px; opacity:.7; }
+
 .btn {
   height: 30px; padding: 0 12px; border-radius: var(--radius-sm);
   font-family: inherit; font-size: 12px; font-weight: 500;
@@ -524,6 +566,7 @@ body {
     <button class="icon-btn" id="panel-btn" onclick="openPanel()" title="Actions" style="display:none">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
+    <button class="user-btn" id="user-btn" onclick="openSuPanel()" title="Account"></button>
     <button class="btn btn-ghost" onclick="doLogout()"><span>Sign out</span></button>
   </div>
 </nav>
@@ -602,6 +645,44 @@ body {
         <span class="admin-label">torrents</span>
         <button class="toggle-switch" id="torrent-toggle" onclick="toggleTorrentFlag()"></button>
       </div>
+      <div class="admin-row">
+        <span class="admin-label">registration</span>
+        <button class="toggle-switch" id="reg-toggle" onclick="toggleRegFlag()"></button>
+      </div>
+      <div class="sp-section-title" style="margin-top:8px">Users</div>
+      <div id="user-list" style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--sub);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Super-user switch modal -->
+<div id="su-overlay" style="display:none">
+  <div class="su-overlay" onclick="if(event.target===this)closeSuPanel()">
+    <div class="su-panel" onclick="event.stopPropagation()">
+      <div class="su-head">
+        <span class="su-title" id="su-title">ACCOUNT</span>
+        <button class="su-close" onclick="closeSuPanel()">×</button>
+      </div>
+      <div class="su-body">
+        <div class="su-info" id="su-info"></div>
+        <!-- Admin avatar upload (only shown when already admin) -->
+        <div id="su-avatar-section" style="display:none">
+          <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
+          <button class="btn btn-ghost" style="width:100%" onclick="document.getElementById('avatar-input').click()">
+            Upload avatar
+          </button>
+        </div>
+        <!-- Switch-to-admin form (shown when user is normal) -->
+        <div id="su-switch-section" style="display:none">
+          <div class="su-info">Enter the admin password to switch:</div>
+          <input class="su-input" id="su-pw" type="password" placeholder="Admin password" autocomplete="off">
+          <div class="su-error" id="su-error">Wrong password.</div>
+          <div class="su-actions">
+            <button class="btn btn-primary" style="flex:1" onclick="submitSuSwitch()">Switch to admin</button>
+            <button class="btn btn-ghost" onclick="closeSuPanel()">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -628,8 +709,8 @@ body {
 <script src="/static/theme.js"></script>
 <script>
 // ── State ──────────────────────────────────────────────────────────────────────
-let _all = [], _dirs = [], _cat = null, _isAdmin = false, _canDelete = false, _canWrite = false;
-let _torrentEnabled = false;
+let _all = [], _dirs = [], _cat = null, _isAdmin = false, _canWrite = false;
+let _torrentEnabled = false, _username = null, _avatar = null;
 let _sort = { col: 'mtime', dir: -1 };
 let _path = '';
 let _renamingFile = null;
@@ -641,12 +722,13 @@ const CATS = [
   { id: 'video',   label: 'video',    exts: new Set(['mp4','mkv','avi','mov','webm','flv','m4v','ts']) },
   { id: 'audio',   label: 'audio',    exts: new Set(['mp3','flac','aac','wav','ogg','m4a','opus']) },
   { id: 'doc',     label: 'docs',     exts: new Set(['txt','log','md','json','xml','sh','yaml','toml','cfg','py','js','ts','html','css','pdf','doc','docx','xls','xlsx','csv']) },
+  { id: 'other',   label: 'other',    exts: new Set(['apk','ota','img','iso','bin','raw','dmg','rom','deb','rpm','pkg','ipa','xapk','fw','uf2','hex','torrent','db','sqlite']) },
 ];
 
 function catForFile(name) {
   const e = gext(name);
   for (const c of CATS) if (c.exts.has(e)) return c.id;
-  return 'other';
+  return 'misc';
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────────
@@ -765,10 +847,12 @@ async function load(path) {
     _all  = data.files || [];
     _dirs = data.dirs  || [];
     _isAdmin        = sess.admin || false;
-    _canDelete      = sess.can_delete || false;
     _canWrite       = sess.can_write || false;
     _torrentEnabled = sess.torrent_enabled || false;
+    _username       = sess.username || null;
+    _avatar         = sess.avatar || null;
     _applyPerms();
+    _updateUserBtn();
   } catch { return; }
   buildBreadcrumb();
   buildCatTabs();
@@ -776,14 +860,23 @@ async function load(path) {
   render();
 }
 
+function _updateUserBtn() {
+  const btn = document.getElementById('user-btn');
+  if (_avatar) {
+    btn.innerHTML = `<img src="${_avatar}" alt="avatar">`;
+  } else {
+    btn.textContent = (_username || '?').slice(0,2).toUpperCase();
+  }
+  btn.title = _username || 'Account';
+}
+
 function _applyPerms() {
-  // Show panel button if any action is available
   const hasActions = _canWrite || _torrentEnabled || _isAdmin;
   document.getElementById('panel-btn').style.display = hasActions ? '' : 'none';
   document.getElementById('sp-upload-section').style.display = _canWrite ? '' : 'none';
   document.getElementById('sp-torrent-section').style.display = _torrentEnabled ? '' : 'none';
   document.getElementById('sp-admin-section').style.display = _isAdmin ? '' : 'none';
-  document.getElementById('table-wrap').classList.toggle('admin', _isAdmin || _canDelete);
+  document.getElementById('table-wrap').classList.toggle('admin', true);
   document.getElementById('torrent-toggle').classList.toggle('on', _torrentEnabled);
 }
 
@@ -819,8 +912,8 @@ function buildCatTabs() {
     if (!counts[cat.id]) continue;
     html += `<button class="ctab${_cat===cat.id?' on':''}" onclick="setCat('${cat.id}')">${cat.label} <span class="n">${counts[cat.id]}</span></button>`;
   }
-  if (counts['other']) {
-    html += `<button class="ctab${_cat==='other'?' on':''}" onclick="setCat('other')">other <span class="n">${counts['other']}</span></button>`;
+  if (counts['misc']) {
+    html += `<button class="ctab${_cat==='misc'?' on':''}" onclick="setCat('misc')">misc <span class="n">${counts['misc']}</span></button>`;
   }
   document.getElementById('cattabs').innerHTML = html;
 }
@@ -940,7 +1033,7 @@ function render() {
         <div class="file-badge ${cls}">${label}</div>
         <div class="fname-info">
           <div class="fname-main" title="${esc(f.name)}">${esc(f.name)}</div>
-          <div class="fname-sub">${esc(gext(f.name) ? '.' + gext(f.name) : '—')}</div>
+          <div class="fname-sub">${esc(gext(f.name) ? '.' + gext(f.name) : '—')}${f.owner && _isAdmin ? `<span class="owner-tag">${esc(f.owner)}</span>` : ''}</div>
           <div class="fname-meta">${fsize(f.size)} · ${fdate(f.mtime)}</div>
         </div>
       </div>
@@ -949,8 +1042,8 @@ function render() {
       <div class="fact">
         <button class="act-btn" id="cb${i}" onclick="copyLink('${esc(f.name)}','cb${i}')" title="Copy link">${COPY_SVG}</button>
         <button class="act-btn" id="db${i}" onclick="dlFile('${esc(f.name)}','db${i}')" title="Download">${DL_SVG}</button>
-        ${_isAdmin ? `<button class="act-btn" onclick="openRename('${esc(f.name)}')" title="Rename">${EDIT_SVG}</button>` : ''}
-        ${_canDelete ? `<button class="act-btn danger" id="xb${i}" onclick="delFile('${esc(f.name)}','xb${i}')" title="Delete">${DEL_SVG}</button>` : ''}
+        ${f.can_modify ? `<button class="act-btn" onclick="openRename('${esc(f.name)}')" title="Rename">${EDIT_SVG}</button>` : ''}
+        ${f.can_modify ? `<button class="act-btn danger" id="xb${i}" onclick="delFile('${esc(f.name)}','xb${i}')" title="Delete">${DEL_SVG}</button>` : ''}
       </div>
     </div>`;
   });
@@ -964,6 +1057,7 @@ document.getElementById('q').addEventListener('input', render);
 function openPanel() {
   document.getElementById('side-panel').classList.add('open');
   document.getElementById('side-overlay').classList.add('open');
+  if (_isAdmin) loadUserList();
 }
 function closePanel() {
   document.getElementById('side-panel').classList.remove('open');
@@ -1163,6 +1257,119 @@ async function toggleTorrentFlag() {
       toast(newVal ? 'torrents enabled' : 'torrents disabled');
     }
   } catch { toast('failed to toggle'); }
+}
+
+async function toggleRegFlag() {
+  try {
+    const r = await fetch('/flags');
+    const flags = await r.json();
+    const newVal = !flags.registration_open;
+    const r2 = await fetch('/flags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registration_open: newVal }),
+    });
+    if (r2.ok) {
+      document.getElementById('reg-toggle').classList.toggle('on', newVal);
+      toast(newVal ? 'registration open' : 'registration closed');
+    }
+  } catch { toast('failed to toggle'); }
+}
+
+async function loadUserList() {
+  if (!_isAdmin) return;
+  try {
+    const r = await fetch('/admin/users');
+    const users = await r.json();
+    const list = document.getElementById('user-list');
+    const r2 = await fetch('/flags');
+    const flags = await r2.json();
+    document.getElementById('reg-toggle').classList.toggle('on', !!flags.registration_open);
+    let html = '';
+    for (const [name, info] of Object.entries(users)) {
+      if (info.role === 'admin') continue;
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border-faint)">
+        <span>${esc(name)}</span>
+        <button class="act-btn danger" onclick="deleteUser('${esc(name)}')" title="Remove user" style="width:22px;height:22px">${DEL_SVG}</button>
+      </div>`;
+    }
+    list.innerHTML = html || '<span style="color:var(--muted)">no users</span>';
+  } catch { }
+}
+
+async function deleteUser(name) {
+  if (!confirm(`Remove user "${name}"?`)) return;
+  const r = await fetch('/admin/users/' + encodeURIComponent(name), { method: 'DELETE' });
+  if (r.ok) { toast('user removed'); loadUserList(); }
+  else { const d = await r.json().catch(()=>({})); toast(d.error || 'failed'); }
+}
+
+// ── Super-user panel ──────────────────────────────────────────────────────────
+function openSuPanel() {
+  const overlay = document.getElementById('su-overlay');
+  const info    = document.getElementById('su-info');
+  const switchSec  = document.getElementById('su-switch-section');
+  const avatarSec  = document.getElementById('su-avatar-section');
+  const title   = document.getElementById('su-title');
+  if (_isAdmin) {
+    title.textContent = 'ADMIN ACCOUNT';
+    info.textContent  = `Signed in as: ${_username}`;
+    switchSec.style.display = 'none';
+    avatarSec.style.display = '';
+  } else {
+    title.textContent = 'ACCOUNT';
+    info.textContent  = `Signed in as: ${_username}`;
+    switchSec.style.display = '';
+    avatarSec.style.display = 'none';
+    document.getElementById('su-pw').value = '';
+    document.getElementById('su-error').style.display = 'none';
+  }
+  overlay.style.display = '';
+  if (!_isAdmin) setTimeout(() => document.getElementById('su-pw').focus(), 100);
+}
+
+function closeSuPanel() {
+  document.getElementById('su-overlay').style.display = 'none';
+}
+
+async function submitSuSwitch() {
+  const pw = document.getElementById('su-pw').value;
+  if (!pw) return;
+  const errEl = document.getElementById('su-error');
+  errEl.style.display = 'none';
+  // Re-login as admin with the provided password
+  const form = new FormData();
+  form.append('username', 'admin');
+  form.append('pass', pw);
+  try {
+    const r = await fetch('/login', { method: 'POST', body: form, redirect: 'manual' });
+    // aiohttp returns 302 on success, 401 on failure
+    if (r.type === 'opaqueredirect' || r.status === 0 || r.ok) {
+      // Success — reload page which will restore session from cookie
+      closeSuPanel(); location.reload();
+    } else {
+      errEl.style.display = '';
+      document.getElementById('su-pw').select();
+    }
+  } catch { errEl.style.display = ''; }
+}
+
+document.getElementById('su-pw')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitSuSwitch();
+  if (e.key === 'Escape') closeSuPanel();
+});
+
+async function uploadAvatar(input) {
+  const file = input.files[0]; if (!file) return;
+  const form = new FormData(); form.append('file', file);
+  try {
+    const r = await fetch('/admin/avatar', { method: 'POST', body: form });
+    const d = await r.json();
+    if (r.ok) {
+      _avatar = d.avatar; _updateUserBtn();
+      toast('avatar updated'); closeSuPanel();
+    } else toast(d.error || 'avatar upload failed');
+  } catch { toast('network error'); }
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────
