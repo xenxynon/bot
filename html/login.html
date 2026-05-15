@@ -3,100 +3,94 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>fileserv / sign in</title>
+<title>fileserv</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 <style>
 body {
   display: flex; align-items: center; justify-content: center;
   min-height: 100vh; padding: 32px;
-  background: var(--bg);
 }
 
-.login-wrap { width: 100%; max-width: 360px; }
+.login-wrap { width: 100%; max-width: 340px; }
 
-.login-logo {
-  width: 52px; height: 52px; border-radius: 16px;
-  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px; margin-bottom: 32px;
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent-1) 30%, transparent);
+.login-wordmark {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 18px; font-weight: 500;
+  color: var(--text); letter-spacing: -.02em;
+  margin-bottom: 8px;
 }
+.login-wordmark span { color: var(--accent); }
 
-.login-heading {
-  font-size: 28px; font-weight: 600;
-  letter-spacing: -.03em; color: var(--text);
-  margin-bottom: 6px;
-}
 .login-sub {
-  font-size: 14px; color: var(--sub);
+  font-size: 13px; color: var(--muted);
   margin-bottom: 32px;
 }
 
 .field-label {
-  font-size: 12px; font-weight: 500;
-  color: var(--sub); margin-bottom: 8px; display: block;
+  font-size: 11px; font-weight: 500; letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted); margin-bottom: 6px; display: block;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .field-input {
-  width: 100%; height: 48px;
+  width: 100%; height: 44px;
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text);
-  font-family: inherit; font-size: 15px;
-  padding: 0 16px; outline: none;
-  transition: border-color .15s, box-shadow .15s;
-  -webkit-appearance: none; letter-spacing: .05em;
+  border-radius: 8px; color: var(--text);
+  font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+  padding: 0 14px; outline: none;
+  transition: border-color .12s;
+  -webkit-appearance: none; letter-spacing: .04em;
 }
-.field-input:focus {
-  border-color: var(--accent-1);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-1) 15%, transparent);
-}
-.field-input::placeholder { color: var(--subtle); letter-spacing: normal; }
+.field-input:focus { border-color: var(--accent); }
+.field-input::placeholder { color: var(--muted); letter-spacing: normal; font-family: 'IBM Plex Sans', sans-serif; }
 
 .submit-btn {
-  width: 100%; height: 48px; margin-top: 12px;
-  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
-  color: #fff; border: none; border-radius: 10px;
-  font-family: inherit; font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: opacity .15s, transform .1s;
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-1) 30%, transparent);
+  width: 100%; height: 44px; margin-top: 10px;
+  background: var(--accent);
+  color: #fff; border: none; border-radius: 8px;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity .12s, transform .1s;
+  letter-spacing: .01em;
 }
-.submit-btn:hover { opacity: .9; }
-.submit-btn:active { transform: scale(.98); opacity: .8; }
+.submit-btn:hover { opacity: .88; }
+.submit-btn:active { transform: scale(.98); }
 
 .error {
   font-size: 12px; color: var(--red);
-  margin-top: 12px; padding: 10px 14px;
+  margin-top: 10px; padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
-  border-radius: 8px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--red) 6%, transparent);
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .login-footer {
-  margin-top: 32px;
+  margin-top: 24px;
   display: flex; align-items: center; justify-content: space-between;
 }
-.footer-hint { font-size: 12px; color: var(--subtle); font-style: italic; min-height: 16px; }
+.footer-hint { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; min-height: 16px; }
 .theme-toggle {
   background: none; border: 1px solid var(--border);
-  color: var(--sub); width: 32px; height: 32px; border-radius: 8px;
+  color: var(--sub); width: 30px; height: 30px; border-radius: 6px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  font-size: 13px; transition: border-color .1s, color .1s;
+  font-size: 12px; transition: border-color .1s, color .1s;
 }
-.theme-toggle:hover { border-color: var(--sub); color: var(--text); }
+.theme-toggle:hover { border-color: var(--border-strong); color: var(--text); }
 </style>
 </head>
 <body>
 <div class="login-wrap">
-  <div class="login-logo">📦</div>
-  <h1 class="login-heading">Welcome back</h1>
-  <p class="login-sub">Sign in to access fileserv</p>
+  <div class="login-wordmark">file<span>serv</span></div>
+  <p class="login-sub">Enter your password to continue</p>
 
   <form method="POST" action="/login">
     <label class="field-label" for="pw">Password</label>
     <input class="field-input" id="pw" type="password" name="pass"
-           autofocus autocomplete="current-password" placeholder="Enter password">
+           autofocus autocomplete="current-password" placeholder="••••••••">
     <button class="submit-btn" type="submit">Continue →</button>
     {{error}}
   </form>
@@ -110,13 +104,11 @@ body {
 <script src="/static/theme.js"></script>
 <script>
 const HINTS = [
-  "tip: it's not '1234'",
+  "it's not '1234'",
+  "knock knock...",
   "the server is judging you",
-  "knock knock... access denied",
-  "your files await, nervously",
-  "what's the magic word?",
   "brute force not recommended",
-  "the password is not 'admin'",
+  "what's the magic word?",
 ];
 const hint = document.getElementById('hint');
 let shown = false, idleTimer;
@@ -138,8 +130,8 @@ let wrongCount = parseInt(sessionStorage.getItem('wc') || '0');
 if (document.querySelector('.error')) {
   wrongCount++;
   sessionStorage.setItem('wc', wrongCount);
-  if (wrongCount === 3) hint.textContent = "three strikes... you good?";
-  if (wrongCount >= 5) hint.textContent = "at this point just text them";
+  if (wrongCount >= 3) hint.textContent = 'three strikes...';
+  if (wrongCount >= 5) hint.textContent = 'just text them instead';
 }
 </script>
 </body>
