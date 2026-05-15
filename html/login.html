@@ -3,163 +3,101 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>fileserv / auth</title>
+<title>fileserv / sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 <style>
-body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:32px; }
-
-.login-wrap {
-  width: 100%;
-  max-width: 380px;
+body {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: 32px;
+  background: var(--bg);
 }
 
-.login-eyebrow {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--sub);
-  margin-bottom: 48px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+.login-wrap { width: 100%; max-width: 360px; }
 
-.login-eyebrow::before {
-  content: '';
-  display: block;
-  width: 18px;
-  height: 2px;
-  background: var(--accent);
-  flex-shrink: 0;
+.login-logo {
+  width: 52px; height: 52px; border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; margin-bottom: 32px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent-1) 30%, transparent);
 }
 
 .login-heading {
-  font-size: clamp(42px, 8vw, 64px);
-  font-weight: 600;
-  letter-spacing: -.04em;
-  line-height: .95;
-  color: var(--text);
-  margin-bottom: 48px;
+  font-size: 28px; font-weight: 600;
+  letter-spacing: -.03em; color: var(--text);
+  margin-bottom: 6px;
 }
-
-.login-heading em {
-  font-style: italic;
-  font-weight: 300;
-  color: var(--sub);
+.login-sub {
+  font-size: 14px; color: var(--sub);
+  margin-bottom: 32px;
 }
-
-.field-group { margin-bottom: 12px; }
 
 .field-label {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--sub);
-  margin-bottom: 8px;
-  display: block;
+  font-size: 12px; font-weight: 500;
+  color: var(--sub); margin-bottom: 8px; display: block;
 }
 
 .field-input {
-  width: 100%;
-  height: 56px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  color: var(--text);
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 400;
-  padding: 0 18px;
-  outline: none;
-  transition: border-color .1s;
-  -webkit-appearance: none;
-  letter-spacing: .06em;
+  width: 100%; height: 48px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text);
+  font-family: inherit; font-size: 15px;
+  padding: 0 16px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  -webkit-appearance: none; letter-spacing: .05em;
 }
-
-.field-input:focus { border-color: var(--text); }
-.field-input::placeholder { color: var(--subtle); letter-spacing: .1em; }
+.field-input:focus {
+  border-color: var(--accent-1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-1) 15%, transparent);
+}
+.field-input::placeholder { color: var(--subtle); letter-spacing: normal; }
 
 .submit-btn {
-  width: 100%;
-  height: 56px;
-  background: var(--text);
-  color: var(--bg);
-  border: none;
-  border-radius: 0;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: opacity .1s;
-  margin-top: 4px;
+  width: 100%; height: 48px; margin-top: 12px;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  color: #fff; border: none; border-radius: 10px;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: opacity .15s, transform .1s;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--accent-1) 30%, transparent);
 }
-
-.submit-btn:hover { opacity: .85; }
-.submit-btn:active { opacity: .7; }
+.submit-btn:hover { opacity: .9; }
+.submit-btn:active { transform: scale(.98); opacity: .8; }
 
 .error {
-  font-size: 12px;
-  color: var(--red);
-  margin-top: 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--red);
+  font-size: 12px; color: var(--red);
+  margin-top: 12px; padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+  border-radius: 8px;
   background: color-mix(in srgb, var(--red) 6%, transparent);
 }
 
 .login-footer {
-  margin-top: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  margin-top: 32px;
+  display: flex; align-items: center; justify-content: space-between;
 }
-
-.footer-hint {
-  font-size: 11px;
-  color: var(--subtle);
-  font-style: italic;
-  transition: opacity .3s;
-  min-height: 16px;
-}
-
+.footer-hint { font-size: 12px; color: var(--subtle); font-style: italic; min-height: 16px; }
 .theme-toggle {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--sub);
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  transition: border-color .1s, color .1s;
-  flex-shrink: 0;
+  background: none; border: 1px solid var(--border);
+  color: var(--sub); width: 32px; height: 32px; border-radius: 8px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; transition: border-color .1s, color .1s;
 }
-
 .theme-toggle:hover { border-color: var(--sub); color: var(--text); }
 </style>
 </head>
 <body>
 <div class="login-wrap">
-  <div class="login-eyebrow">fileserv</div>
-
-  <h1 class="login-heading">
-    sign<br><em>in.</em>
-  </h1>
+  <div class="login-logo">📦</div>
+  <h1 class="login-heading">Welcome back</h1>
+  <p class="login-sub">Sign in to access fileserv</p>
 
   <form method="POST" action="/login">
-    <div class="field-group">
-      <label class="field-label" for="pw">Password</label>
-      <input class="field-input" id="pw" type="password" name="pass"
-             autofocus autocomplete="current-password" placeholder="· · · · · · · ·">
-    </div>
-    <button class="submit-btn" type="submit">Continue</button>
+    <label class="field-label" for="pw">Password</label>
+    <input class="field-input" id="pw" type="password" name="pass"
+           autofocus autocomplete="current-password" placeholder="Enter password">
+    <button class="submit-btn" type="submit">Continue →</button>
     {{error}}
   </form>
 
@@ -171,54 +109,37 @@ body { display:flex; align-items:center; justify-content:center; min-height:100v
 
 <script src="/static/theme.js"></script>
 <script>
-// ── login page easter eggs ────────────────────────────────────────────────────
 const HINTS = [
   "tip: it's not '1234'",
-  "try 'password'. jk please don't.",
   "the server is judging you",
-  "knock knock... who's there... access denied",
-  "this login page has trust issues",
+  "knock knock... access denied",
   "your files await, nervously",
   "what's the magic word?",
-  "i promise the files are friendly",
-  "brute force not recommended (we timed it)",
-  "the password is definitely not 'admin'",
+  "brute force not recommended",
+  "the password is not 'admin'",
 ];
-
 const hint = document.getElementById('hint');
-let shown = false;
+let shown = false, idleTimer;
 
-// show a hint after a moment of inactivity
-let idleTimer;
+function showHint() {
+  if (shown) return; shown = true;
+  hint.textContent = HINTS[Math.floor(Math.random() * HINTS.length)];
+  setTimeout(() => { hint.textContent = ''; shown = false; resetIdle(); }, 5000);
+}
 function resetIdle() {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(showHint, 8000);
 }
-
-function showHint() {
-  if (shown) return;
-  shown = true;
-  hint.textContent = HINTS[Math.floor(Math.random() * HINTS.length)];
-  setTimeout(() => {
-    hint.textContent = '';
-    shown = false;
-    resetIdle();
-  }, 5000);
-}
-
 document.addEventListener('mousemove', resetIdle);
 document.addEventListener('keydown', resetIdle);
 resetIdle();
 
-// wrong password 3x egg
 let wrongCount = parseInt(sessionStorage.getItem('wc') || '0');
-const form = document.querySelector('form');
 if (document.querySelector('.error')) {
   wrongCount++;
   sessionStorage.setItem('wc', wrongCount);
   if (wrongCount === 3) hint.textContent = "three strikes... you good?";
-  if (wrongCount === 5) hint.textContent = "ok at this point just text them";
-  if (wrongCount >= 7) hint.textContent = "are you ok";
+  if (wrongCount >= 5) hint.textContent = "at this point just text them";
 }
 </script>
 </body>

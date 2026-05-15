@@ -50,7 +50,33 @@ SF_SESSION_TTL    = 300
 BUSY_MSG          = "busy — /cancel first"
 
 ANSI_RE    = re.compile(r"\x1b\[[0-9;]*[mKHJA-Za-z]")
-TORRENT_RE = re.compile(r"^magnet:|\\.torrent(\\?|$)", re.I)
+TORRENT_RE = re.compile(r"^magnet:|\.torrent(\?|$)", re.I)
+
+def _torrent_enabled() -> bool:
+    """Read torrent flag from flags.json (same file web.py uses)."""
+    flags_file = Path(__file__).parent / "flags.json"
+    try:
+        import json as _json
+        return bool(_json.loads(flags_file.read_text()).get("torrent_enabled", False))
+    except Exception:
+        return False
+
+def _set_torrent_flag(val: bool) -> None:
+    flags_file = Path(__file__).parent / "flags.json"
+    try:
+        import json as _json
+        try:
+            d = _json.loads(flags_file.read_text())
+        except Exception:
+            d = {}
+        d["torrent_enabled"] = val
+        tmp = str(flags_file) + ".tmp"
+        with open(tmp, "w") as f:
+            _json.dump(d, f)
+        import os as _os
+        _os.replace(tmp, str(flags_file))
+    except Exception as e:
+        print(f"[warn] flag save: {e}")
 
 SHELL_CMDS = {
     "ps":      "ps aux --sort=-%cpu | head -30",
@@ -439,7 +465,8 @@ async def cmd_help(_, msg):
     await msg.reply("**transfers:** /ul /dl /tr /gf /sf /cancel\n"
                     "**shell:** /sh /stdin /ps /top /free /uptime /whoami /netstat\n"
                     "**fs:** /ls /cat /rm /mv /cp /del\n"
-                    "**info:** /ping /status  **auth:** /allow /revoke", quote=True)
+                    "**info:** /ping /status  **auth:** /allow /revoke\n"
+                    "**admin:** /torrent (on/off — toggles magnet/torrent downloads)", quote=True)
 
 @app.on_message(filters.command("ping"))
 async def cmd_ping(_, msg):
@@ -511,8 +538,24 @@ async def cmd_download(client, msg):
     a = _args(msg, n=2)
     if not a: await msg.reply("usage: /dl <url> [name]  or reply to file", quote=True); return
     url = a[0]
-    if TORRENT_RE.search(url) or not url.startswith(("http://", "https://")):
-        await msg.reply("http/https only, no torrents", quote=True); return
+    if TORRENT_RE.search(url):
+        if not _torrent_enabled():
+            await msg.reply("torrents disabled — /torrent on to enable", quote=True); return
+        status = await msg.reply(f"🧲 starting aria2c…", quote=True)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "aria2c", "--dir", str(DOWNLOADS_DIR), "--daemon=false",
+                "--quiet=true", "--max-connection-per-server=4",
+                "--split=4", "--seed-time=0", url,
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+            await _edit(status, f"🧲 aria2c running (pid {proc.pid}) — files will appear when done")
+        except FileNotFoundError:
+            await _edit(status, "aria2c not found on server")
+        except Exception as e:
+            await _edit(status, f"torrent failed: `{e}`")
+        return
+    if not url.startswith(("http://", "https://")):
+        await msg.reply("http/https only", quote=True); return
     name = a[1] if len(a) > 1 else (os.path.basename(url.split("?")[0]) or "download")
     dest = _dl_dest(name); ev = asyncio.Event(); t0 = time.time()
     status = await msg.reply(f"↓ `{name}`…", quote=True)
@@ -553,7 +596,22 @@ async def cmd_transfer(client, msg):
             except asyncio.CancelledError: pass
             except Exception as e: print(f"[tr] {e}")
         _mktask(uid, _lu()); return
-    if TORRENT_RE.search(target): await msg.reply("no torrents", quote=True); return
+    if TORRENT_RE.search(target):
+        if not _torrent_enabled():
+            await msg.reply("torrents disabled — /torrent on to enable", quote=True); return
+        status = await msg.reply("🧲 starting aria2c…", quote=True)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "aria2c", "--dir", str(DOWNLOADS_DIR), "--daemon=false",
+                "--quiet=true", "--max-connection-per-server=4",
+                "--split=4", "--seed-time=0", target,
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+            await _edit(status, f"🧲 aria2c running (pid {proc.pid}) — files will appear when done")
+        except FileNotFoundError:
+            await _edit(status, "aria2c not found on server")
+        except Exception as e:
+            await _edit(status, f"torrent failed: `{e}`")
+        return
     name = pos[1] if len(pos) > 1 else (os.path.basename(target.split("?")[0]) or "download")
     dest = _dl_dest(name); ev = asyncio.Event(); t0 = time.time()
     transfers[uid] = {"type": "download", "name": name, "start_time": t0, "cancel_event": ev}
@@ -769,6 +827,22 @@ def _register_2path(name, fn):
 
 _register_2path("mv", shutil.move)
 _register_2path("cp", shutil.copy2)
+
+
+@app.on_message(filters.command("torrent"))
+@superauth
+async def cmd_torrent(_, msg):
+    """Toggle torrent/magnet download support. Superuser only."""
+    a = _args(msg)
+    if a and a[0].lower() in ("on", "enable", "1", "true"):
+        _set_torrent_flag(True)
+        await msg.reply("🧲 torrent downloads **enabled** (aria2c)", quote=True)
+    elif a and a[0].lower() in ("off", "disable", "0", "false"):
+        _set_torrent_flag(False)
+        await msg.reply("⛔ torrent downloads **disabled**", quote=True)
+    else:
+        state = "enabled ✅" if _torrent_enabled() else "disabled ❌"
+        await msg.reply(f"torrent downloads: **{state}**\nuse `/torrent on` or `/torrent off`", quote=True)
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────

@@ -5,153 +5,256 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>fileserv</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 <style>
+:root {
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 6px;
+  --nav-h: 60px;
+  --strip-h: 44px;
+  --bar-h: 32px;
+  --sidebar-w: 220px;
+  --transition: .15s cubic-bezier(.4,0,.2,1);
+}
 
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── Nav ── */
 .nav {
   position: sticky; top: 0; z-index: 100;
-  height: 56px;
+  height: var(--nav-h);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  display: flex;
-  align-items: stretch;
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 10px;
 }
 
 .nav-brand {
-  display: flex; align-items: center;
-  padding: 0 24px;
-  border-right: 1px solid var(--border);
-  font-size: 13px; font-weight: 600; letter-spacing: -.01em;
-  color: var(--text); gap: 10px;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 15px; font-weight: 600; color: var(--text);
   cursor: default; user-select: none; flex-shrink: 0;
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  transition: background var(--transition);
+}
+.nav-brand:hover { background: var(--surface); }
+.nav-brand-icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
 }
 
-.nav-brand-dot {
-  width: 7px; height: 7px;
-  background: var(--accent); border-radius: 50%;
-  flex-shrink: 0; transition: transform .2s;
+/* Breadcrumb */
+.breadcrumb {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; color: var(--sub); flex-shrink: 0;
+  max-width: 300px; overflow: hidden;
 }
-
-.nav-brand:hover .nav-brand-dot { transform: scale(1.6); }
-
-.nav-search {
-  flex: 1; display: flex; align-items: center;
-  padding: 0 20px; gap: 12px;
-  border-right: 1px solid var(--border);
-  min-width: 0;
+.bc-sep { color: var(--subtle); font-size: 11px; }
+.bc-item {
+  background: none; border: none; color: var(--sub);
+  cursor: pointer; font-family: inherit; font-size: 13px;
+  padding: 2px 6px; border-radius: var(--radius-xs);
+  transition: color var(--transition), background var(--transition);
+  white-space: nowrap;
 }
+.bc-item:hover { color: var(--text); background: var(--surface); }
+.bc-item.current { color: var(--text); cursor: default; font-weight: 500; }
 
-.nav-search svg { flex-shrink: 0; stroke: var(--sub); }
-
+/* Search pill */
+.search-wrap {
+  flex: 1; min-width: 0; max-width: 380px; margin: 0 auto;
+  position: relative;
+}
+.search-wrap svg {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  stroke: var(--sub); pointer-events: none;
+}
 #q {
-  flex: 1; background: transparent; border: none; outline: none;
-  font-family: inherit; font-size: 14px; color: var(--text); min-width: 0;
+  width: 100%; height: 36px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 100px; outline: none;
+  font-family: inherit; font-size: 13px; color: var(--text);
+  padding: 0 14px 0 36px;
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
+#q:focus { border-color: var(--accent-1); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-1) 15%, transparent); }
 #q::placeholder { color: var(--subtle); }
 
-.nav-actions {
-  display: flex; align-items: center;
-  padding: 0 16px; gap: 8px; flex-shrink: 0;
-}
+.nav-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-.nav-btn {
-  height: 34px; padding: 0 14px;
+.icon-btn {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
   background: transparent; border: 1px solid var(--border);
-  color: var(--sub); font-family: inherit; font-size: 12px;
-  font-weight: 500; cursor: pointer;
-  transition: border-color .1s, color .1s, background .1s;
-  white-space: nowrap; letter-spacing: .01em;
+  color: var(--sub); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition); flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-.nav-btn:hover { border-color: var(--sub); color: var(--text); }
-.nav-btn.icon-only { width: 34px; padding: 0; display:flex; align-items:center; justify-content:center; font-size:14px; }
+.icon-btn:hover { border-color: var(--sub); color: var(--text); background: var(--surface); }
+.icon-btn:active { transform: scale(.92); }
 
+.pill-btn {
+  height: 36px; padding: 0 16px; border-radius: 100px;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  cursor: pointer; border: 1px solid; display: flex; align-items: center; gap: 7px;
+  transition: all var(--transition); white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.pill-btn.outline { background: transparent; border-color: var(--border); color: var(--sub); }
+.pill-btn.outline:hover { border-color: var(--sub); color: var(--text); background: var(--surface); }
+.pill-btn.solid { background: var(--text); border-color: var(--text); color: var(--bg); }
+.pill-btn.solid:hover { opacity: .85; }
+.pill-btn.accent { background: var(--accent-1); border-color: var(--accent-1); color: #fff; }
+.pill-btn.accent:hover { opacity: .88; }
+
+/* ── Filter strip ── */
 .filter-strip {
-  height: 42px; border-bottom: 1px solid var(--border);
+  height: var(--strip-h);
+  border-bottom: 1px solid var(--border);
   display: flex; align-items: center;
-  padding: 0 24px; gap: 2px;
+  padding: 0 20px; gap: 4px;
   overflow-x: auto; scrollbar-width: none;
-  background: var(--bg); flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  flex-shrink: 0;
 }
 .filter-strip::-webkit-scrollbar { display: none; }
 
 .ftab {
-  height: 26px; padding: 0 12px;
+  height: 28px; padding: 0 12px; border-radius: 100px;
   background: transparent; border: 1px solid transparent;
   color: var(--sub); font-family: inherit; font-size: 12px; font-weight: 500;
-  cursor: pointer; transition: all .1s;
-  display: flex; align-items: center; gap: 7px;
+  cursor: pointer; transition: all var(--transition);
+  display: flex; align-items: center; gap: 6px;
   white-space: nowrap; flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.ftab:hover { color: var(--text); }
+.ftab:hover { color: var(--text); background: var(--surface); }
 .ftab.on { color: var(--text); background: var(--surface); border-color: var(--border); }
-.ftab .n { font-size: 10px; color: var(--subtle); font-weight: 400; }
+.ftab .n { font-size: 10px; color: var(--subtle); background: var(--surface-2); padding: 1px 5px; border-radius: 100px; }
 .ftab.on .n { color: var(--sub); }
 
-.body { display: flex; min-height: calc(100vh - 56px - 42px - 32px); }
+/* ── Sort bar ── */
+.sort-bar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 0 20px 0 auto; margin-left: auto;
+  flex-shrink: 0;
+}
+.sort-label { font-size: 11px; color: var(--subtle); margin-right: 2px; }
+.sort-btn {
+  height: 24px; padding: 0 10px; border-radius: 100px;
+  background: transparent; border: 1px solid transparent;
+  color: var(--subtle); font-family: inherit; font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all var(--transition);
+  display: flex; align-items: center; gap: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+.sort-btn:hover { color: var(--sub); }
+.sort-btn.on { color: var(--text); background: var(--surface); border-color: var(--border); }
+.sort-btn .arr { font-size: 9px; }
 
+/* ── Body layout ── */
+.body { display: flex; min-height: calc(100vh - var(--nav-h) - var(--strip-h) - var(--bar-h)); }
+
+/* ── Sidebar ── */
 .sidebar {
-  width: 200px; flex-shrink: 0;
+  width: var(--sidebar-w); flex-shrink: 0;
   border-right: 1px solid var(--border);
-  padding: 28px 0;
-  position: sticky; top: calc(56px + 42px);
-  height: calc(100vh - 56px - 42px - 32px);
+  padding: 20px 0;
+  position: sticky; top: calc(var(--nav-h) + var(--strip-h));
+  height: calc(100vh - var(--nav-h) - var(--strip-h) - var(--bar-h));
   overflow-y: auto; background: var(--bg);
 }
 
-.s-section { margin-bottom: 28px; }
-
+.s-section { margin-bottom: 24px; }
 .s-heading {
   font-size: 10px; font-weight: 600;
-  letter-spacing: .12em; text-transform: uppercase;
-  color: var(--subtle); padding: 0 20px; margin-bottom: 10px;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--subtle); padding: 0 16px; margin-bottom: 8px;
 }
-
 .s-row {
   display: flex; justify-content: space-between; align-items: baseline;
-  padding: 3px 20px;
+  padding: 3px 16px;
 }
-.s-key { font-size: 13px; color: var(--sub); }
-.s-val { font-size: 13px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
-
-.s-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+.s-key { font-size: 12px; color: var(--sub); }
+.s-val { font-size: 12px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.s-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 
 .s-ext {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 5px 20px; background: transparent; border: none;
+  padding: 5px 12px 5px 16px; background: transparent; border: none;
   width: 100%; cursor: pointer; font-family: inherit;
-  transition: background .08s; -webkit-tap-highlight-color: transparent;
+  transition: background var(--transition); border-radius: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 .s-ext:hover { background: var(--surface); }
-.s-ext.on { background: var(--surface); }
-.s-ext-name { font-size: 13px; color: var(--sub); font-weight: 400; text-align: left; }
+.s-ext.on { background: color-mix(in srgb, var(--accent-1) 10%, transparent); }
+.s-ext-name { font-size: 12px; color: var(--sub); font-weight: 400; font-family: 'Geist Mono', monospace; }
 .s-ext.on .s-ext-name { color: var(--text); font-weight: 500; }
-.s-ext-n { font-size: 11px; color: var(--subtle); }
+.s-ext-n {
+  font-size: 10px; color: var(--subtle); background: var(--surface-2);
+  padding: 1px 6px; border-radius: 100px;
+}
 
+/* Torrent toggle (admin sidebar) */
+.s-toggle-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 12px 6px 16px;
+}
+.s-toggle-label { font-size: 12px; color: var(--sub); }
+.toggle-switch {
+  width: 36px; height: 20px; border-radius: 100px;
+  background: var(--border); cursor: pointer; border: none;
+  position: relative; transition: background var(--transition);
+  flex-shrink: 0;
+}
+.toggle-switch.on { background: var(--accent-1); }
+.toggle-switch::after {
+  content: ''; position: absolute;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; top: 3px; left: 3px;
+  transition: left var(--transition), box-shadow var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.toggle-switch.on::after { left: 19px; }
+
+/* ── Table area ── */
 .table-area { flex: 1; min-width: 0; }
 
 .thead {
-  display: grid; grid-template-columns: 1fr 96px 140px 80px;
-  align-items: center; height: 38px; padding: 0 24px;
+  display: grid;
+  grid-template-columns: 1fr 90px 150px 100px;
+  align-items: center; height: 38px; padding: 0 20px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  position: sticky; top: calc(56px + 42px); z-index: 10;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  position: sticky; top: calc(var(--nav-h) + var(--strip-h)); z-index: 10;
 }
-
-/* wider last column when admin (3 action buttons) */
+.table-area.can-delete .thead,
+.table-area.can-delete .frow { grid-template-columns: 1fr 90px 150px 100px; }
 .table-area.admin .thead,
-.table-area.admin .frow { grid-template-columns: 1fr 96px 140px 110px; }
+.table-area.admin .frow { grid-template-columns: 1fr 90px 150px 136px; }
 
 .th {
   font-size: 10px; font-weight: 600;
-  letter-spacing: .1em; text-transform: uppercase;
+  letter-spacing: .08em; text-transform: uppercase;
   color: var(--subtle); background: transparent; border: none;
   padding: 0; cursor: pointer;
   display: flex; align-items: center; gap: 4px;
-  font-family: inherit; transition: color .1s;
+  font-family: inherit; transition: color var(--transition);
   -webkit-tap-highlight-color: transparent;
 }
 .th:hover { color: var(--sub); }
@@ -160,33 +263,46 @@
 .th-c { justify-content: center; cursor: default; }
 .th .arr { font-size: 9px; }
 
+/* ── File rows ── */
 .frow {
-  display: grid; grid-template-columns: 1fr 96px 140px 80px;
-  align-items: center; height: 56px; padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-  transition: background .07s;
+  display: grid;
+  grid-template-columns: 1fr 90px 150px 100px;
+  align-items: center; min-height: 56px; padding: 0 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  transition: background var(--transition);
+  cursor: default;
 }
 .frow:last-child { border-bottom: none; }
 .frow:hover { background: var(--surface); }
 
-.fname-cell { display: flex; align-items: center; gap: 14px; min-width: 0; }
+/* Dir row */
+.frow.dir-row { cursor: pointer; }
+.frow.dir-row:hover { background: color-mix(in srgb, var(--accent-1) 6%, var(--surface)); }
 
-.badge {
-  font-size: 9px; font-weight: 700;
-  letter-spacing: .05em; text-transform: uppercase;
-  padding: 3px 7px; border: 1px solid;
-  flex-shrink: 0; line-height: 1;
+.fname-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* File icon */
+.file-icon {
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 15px;
 }
-.b-arc { color: #f97316; border-color: rgba(249,115,22,.35); background: rgba(249,115,22,.07); }
-.b-img { color: #a855f7; border-color: rgba(168,85,247,.35); background: rgba(168,85,247,.07); }
-.b-pkg { color: #22c55e; border-color: rgba(34,197,94,.35);  background: rgba(34,197,94,.07);  }
-.b-txt { color: #3b82f6; border-color: rgba(59,130,246,.35); background: rgba(59,130,246,.07); }
-.b-def { color: var(--sub); border-color: var(--border); background: var(--surface); }
+.fi-arc  { background: rgba(249,115,22,.1);  color: #f97316; }
+.fi-img  { background: rgba(168,85,247,.1);  color: #a855f7; }
+.fi-pkg  { background: rgba(34,197,94,.1);   color: #22c55e; }
+.fi-txt  { background: rgba(59,130,246,.1);  color: #3b82f6; }
+.fi-vid  { background: rgba(236,72,153,.1);  color: #ec4899; }
+.fi-dir  { background: rgba(251,191,36,.1);  color: #f59e0b; }
+.fi-def  { background: var(--surface-2);     color: var(--sub); }
 
-.fname-info { min-width: 0; }
+.fname-info { min-width: 0; flex: 1; }
 .fname-main {
-  font-size: 14px; font-weight: 400; color: var(--text);
+  font-size: 13px; font-weight: 500; color: var(--text);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fname-ext {
+  font-size: 11px; color: var(--subtle);
+  font-family: 'Geist Mono', monospace; margin-top: 1px;
 }
 .fname-meta { font-size: 11px; color: var(--subtle); margin-top: 1px; display: none; }
 
@@ -194,140 +310,170 @@
   font-size: 12px; color: var(--sub);
   text-align: right; white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  font-family: 'Geist Mono', monospace;
 }
-.fdate { font-size: 11px; color: var(--subtle); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fdate {
+  font-size: 11px; color: var(--subtle); white-space: nowrap;
+  font-variant-numeric: tabular-nums; padding-left: 8px;
+}
 
-.fact { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.fact { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 
 .act-btn {
-  width: 30px; height: 30px;
-  background: transparent; border: 1px solid var(--border);
-  color: var(--sub); cursor: pointer;
+  width: 30px; height: 30px; border-radius: var(--radius-xs);
+  background: transparent; border: 1px solid transparent;
+  color: var(--subtle); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: all .1s; flex-shrink: 0;
+  transition: all var(--transition); flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.act-btn:hover { border-color: var(--sub); color: var(--text); background: var(--surface); }
-.act-btn:active { transform: scale(.9); }
-.act-btn.ok {
-  color: var(--green); border-color: var(--green);
-  background: color-mix(in srgb, var(--green) 8%, transparent);
-  pointer-events: none;
-}
-/* armed = waiting for confirm click */
-.act-btn.armed {
-  color: var(--red); border-color: var(--red);
-  background: color-mix(in srgb, var(--red) 8%, transparent);
-}
+.act-btn:hover { border-color: var(--border); color: var(--text); background: var(--surface-2); }
+.act-btn:active { transform: scale(.88); }
+.act-btn.ok  { color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); background: color-mix(in srgb, var(--green) 8%, transparent); pointer-events: none; }
+.act-btn.armed { color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); background: color-mix(in srgb, var(--red) 8%, transparent); }
+.act-btn.danger:hover { color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); background: color-mix(in srgb, var(--red) 8%, transparent); }
 
-.empty { padding: 100px 24px; text-align: center; }
-.empty-num {
-  font-size: clamp(80px, 15vw, 140px); font-weight: 600;
-  letter-spacing: -.06em; color: var(--border);
-  line-height: 1; margin-bottom: 16px;
-}
-.empty-msg { font-size: 15px; color: var(--sub); }
+/* ── Empty state ── */
+.empty { padding: 80px 24px; text-align: center; }
+.empty-icon { font-size: 56px; margin-bottom: 16px; opacity: .3; }
+.empty-msg { font-size: 14px; color: var(--sub); }
 
+/* ── Status bar ── */
 .statusbar {
   position: fixed; bottom: 0; left: 0; right: 0;
-  height: 32px; border-top: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 95%, transparent);
-  backdrop-filter: blur(8px);
+  height: var(--bar-h);
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(12px);
   display: flex; align-items: center;
-  padding: 0 20px; gap: 20px; z-index: 50;
+  padding: 0 16px; gap: 16px; z-index: 50;
 }
 .sb-stat { font-size: 11px; color: var(--subtle); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.sb-stat b { color: var(--sub); font-weight: 500; }
-.sb-egg {
-  margin-left: auto; font-size: 11px; color: var(--subtle);
-  font-style: italic; transition: opacity .4s;
-}
+.sb-stat b { color: var(--sub); font-weight: 600; }
+.sb-egg { margin-left: auto; font-size: 11px; color: var(--subtle); font-style: italic; transition: opacity .4s; }
 
+/* ── Toast ── */
 #toast {
-  position: fixed; bottom: 52px; left: 50%;
+  position: fixed; bottom: 44px; left: 50%;
   transform: translateX(-50%) translateY(12px);
   background: var(--text); color: var(--bg);
   font-size: 12px; font-weight: 500;
-  padding: 9px 16px; white-space: nowrap;
-  z-index: 999; pointer-events: none; opacity: 0;
+  padding: 8px 16px; border-radius: 100px;
+  white-space: nowrap; z-index: 999; pointer-events: none; opacity: 0;
   transition: opacity .15s, transform .2s cubic-bezier(.34,1.4,.64,1);
-  letter-spacing: .01em;
+  letter-spacing: .01em; box-shadow: 0 4px 20px rgba(0,0,0,.15);
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ── upload overlay ── */
-.upload-overlay {
+/* ── Overlay backdrop ── */
+.overlay {
   position: fixed; inset: 0; z-index: 200;
-  background: color-mix(in srgb, var(--bg) 85%, transparent);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
-  padding: 24px;
+  padding: 24px; animation: fadeIn .15s ease;
 }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-.upload-panel {
+.panel {
   background: var(--bg); border: 1px solid var(--border);
-  width: min(440px, 100%); max-height: 80vh;
-  display: flex; flex-direction: column;
+  border-radius: var(--radius); width: min(480px, 100%);
+  max-height: 85vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.15);
+  animation: slideUp .2s cubic-bezier(.34,1,.64,1);
 }
+@keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-.upload-panel-head {
+.panel-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 20px; height: 48px; flex-shrink: 0;
+  padding: 16px 20px; flex-shrink: 0;
   border-bottom: 1px solid var(--border);
-  font-size: 11px; font-weight: 600; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--sub);
 }
+.panel-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.panel-close {
+  width: 28px; height: 28px; border-radius: var(--radius-xs);
+  background: none; border: 1px solid var(--border);
+  color: var(--sub); cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.panel-close:hover { border-color: var(--sub); color: var(--text); }
 
+/* ── Upload panel ── */
 .upload-drop {
-  margin: 20px; padding: 36px 24px;
-  border: 1px dashed var(--border);
+  margin: 16px; padding: 32px 24px;
+  border: 2px dashed var(--border); border-radius: var(--radius-sm);
   text-align: center; cursor: pointer;
   color: var(--sub); font-size: 13px;
-  transition: border-color .1s, background .1s;
+  transition: border-color var(--transition), background var(--transition);
   flex-shrink: 0; user-select: none;
 }
-.upload-drop.drag-over { border-color: var(--text); background: var(--surface); }
-.upload-drop b { color: var(--text); font-weight: 500; }
-
-.upload-list {
-  overflow-y: auto; padding: 0 20px 20px;
-  display: flex; flex-direction: column; gap: 12px;
+.upload-drop:hover, .upload-drop.drag-over {
+  border-color: var(--accent-1);
+  background: color-mix(in srgb, var(--accent-1) 5%, transparent);
 }
+.upload-drop b { color: var(--text); font-weight: 600; }
+.upload-drop .drop-icon { font-size: 28px; margin-bottom: 8px; opacity: .5; }
 
-.upload-item  { display: flex; flex-direction: column; gap: 6px; }
-.upload-iname { font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.upload-track { height: 2px; background: var(--border); }
-.upload-bar   { height: 100%; background: var(--text); width: 0%; transition: width .1s; }
+.upload-list { overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.upload-item { display: flex; flex-direction: column; gap: 5px; padding: 10px; background: var(--surface); border-radius: var(--radius-sm); }
+.upload-iname { font-size: 12px; color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload-track { height: 3px; background: var(--border); border-radius: 100px; overflow: hidden; }
+.upload-bar   { height: 100%; background: var(--accent-1); width: 0%; transition: width .1s; border-radius: 100px; }
 .upload-imeta { font-size: 11px; color: var(--subtle); }
 
-/* ── mobile ── */
+/* ── Torrent panel ── */
+.torrent-input-wrap { padding: 16px; }
+.torrent-input {
+  width: 100%; height: 80px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: 'Geist Mono', monospace; font-size: 12px;
+  padding: 10px 12px; resize: none; outline: none;
+  transition: border-color var(--transition);
+}
+.torrent-input:focus { border-color: var(--accent-1); }
+.torrent-input::placeholder { color: var(--subtle); font-family: inherit; }
+.torrent-actions { display: flex; gap: 8px; padding: 0 16px 16px; }
+
+/* ── Rename input ── */
+.rename-wrap { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.rename-input {
+  width: 100%; height: 44px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: inherit; font-size: 14px;
+  padding: 0 12px; outline: none;
+  transition: border-color var(--transition);
+}
+.rename-input:focus { border-color: var(--accent-1); }
+.rename-actions { display: flex; gap: 8px; }
+
+/* ── Mobile ── */
 @media (max-width: 640px) {
-  body { padding-bottom: 32px; }
+  body { padding-bottom: var(--bar-h); }
   .sidebar { display: none; }
   .body { display: block; }
-  .nav-brand { padding: 0 14px; }
-  .nav-search { padding: 0 12px; gap: 8px; }
-  .nav-actions { padding: 0 10px; gap: 6px; }
-  .nav-btn:not(.icon-only) { padding: 0 10px; font-size: 11px; }
-  .filter-strip { padding: 0 12px; }
+  .nav { padding: 0 10px; gap: 6px; }
+  .search-wrap { max-width: none; }
+  .breadcrumb { display: none; }
+  .filter-strip { padding: 0 10px; }
   .thead { display: none; }
   .frow {
     grid-template-columns: 1fr auto !important;
-    align-items: start; height: auto;
-    padding: 12px 16px; gap: 12px;
+    align-items: start; min-height: auto;
+    padding: 12px 14px; gap: 10px;
   }
-  .fname-main { white-space: normal; word-break: break-word; line-height: 1.35; }
+  .fname-main { white-space: normal; word-break: break-all; }
   .fact { align-items: flex-start; padding-top: 2px; }
   .fsize, .fdate { display: none; }
   .fname-meta { display: block !important; }
-  .act-btn { width: 36px; height: 36px; }
+  .act-btn { width: 34px; height: 34px; }
 }
-
 @media (max-width: 900px) and (min-width: 641px) {
   .sidebar { display: none; }
   .body { display: block; }
 }
-
 @media (max-width: 400px) { .sb-egg { display: none; } }
 </style>
 </head>
@@ -335,39 +481,56 @@
 
 <nav class="nav">
   <div class="nav-brand" id="brand">
-    <span class="nav-brand-dot"></span>
+    <div class="nav-brand-icon">📦</div>
     fileserv
   </div>
-  <div class="nav-search">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input id="q" type="search" placeholder="Search…" autocomplete="off" spellcheck="false">
+  <div class="breadcrumb" id="breadcrumb"></div>
+  <div class="search-wrap">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="q" type="search" placeholder="Search files…" autocomplete="off" spellcheck="false">
   </div>
   <div class="nav-actions">
-    <!-- upload button: only shown for admin sessions -->
-    <button class="nav-btn icon-only" id="upload-btn" style="display:none" onclick="openUpload()" title="Upload">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <button class="icon-btn" id="upload-btn" style="display:none" onclick="openUpload()" title="Upload files">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
     </button>
-    <button class="nav-btn icon-only" onclick="load()" title="Refresh">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    <button class="icon-btn" id="torrent-btn" style="display:none" onclick="openTorrent()" title="Add torrent / magnet">
+      🧲
     </button>
-    <button class="nav-btn icon-only" onclick="toggleTheme()" title="Toggle theme" id="theme-btn">◐</button>
-    <button class="nav-btn" onclick="doLogout()">Sign out</button>
+    <button class="icon-btn" onclick="load()" title="Refresh">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+    </button>
+    <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme" id="theme-btn">◐</button>
+    <button class="pill-btn outline" onclick="doLogout()">Sign out</button>
   </div>
 </nav>
 
-<div class="filter-strip" id="filter-strip"></div>
+<div class="filter-strip" id="filter-strip">
+  <div id="ftabs"></div>
+  <div class="sort-bar" id="sort-bar">
+    <span class="sort-label">Sort:</span>
+  </div>
+</div>
 
 <div class="body">
   <aside class="sidebar">
     <div class="s-section">
       <div class="s-heading">Vault</div>
       <div class="s-row"><span class="s-key">Files</span><span class="s-val" id="d-cnt">—</span></div>
-      <div class="s-row"><span class="s-key">Size</span><span class="s-val" id="d-sz">—</span></div>
+      <div class="s-row"><span class="s-key">Folders</span><span class="s-val" id="d-dirs">—</span></div>
+      <div class="s-row"><span class="s-key">Total size</span><span class="s-val" id="d-sz">—</span></div>
     </div>
     <hr class="s-divider">
     <div class="s-section">
       <div class="s-heading">Type</div>
       <div id="s-ext-list"></div>
+    </div>
+    <div class="s-section" id="s-admin-section" style="display:none">
+      <hr class="s-divider">
+      <div class="s-heading">Admin</div>
+      <div class="s-toggle-row">
+        <span class="s-toggle-label">🧲 Torrents</span>
+        <button class="toggle-switch" id="torrent-toggle" onclick="toggleTorrentFlag()" title="Enable/disable torrent downloads"></button>
+      </div>
     </div>
   </aside>
 
@@ -376,7 +539,7 @@
       <button class="th" data-col="name">Name <span class="arr" id="arr-name"></span></button>
       <button class="th th-r" data-col="size">Size <span class="arr" id="arr-size"></span></button>
       <button class="th" data-col="mtime" style="padding-left:8px">Modified <span class="arr" id="arr-mtime"></span></button>
-      <div class="th th-c">Get</div>
+      <div class="th th-c">Actions</div>
     </div>
     <div id="rows"></div>
   </div>
@@ -384,33 +547,81 @@
 
 <div class="statusbar">
   <div class="sb-stat"><b id="sb-count">0</b> files</div>
-  <div class="sb-stat"><b id="sb-size">—</b> total</div>
+  <div class="sb-stat"><b id="sb-size">—</b></div>
   <div class="sb-stat" id="sb-shown-wrap" style="display:none"><b id="sb-shown">—</b> shown</div>
   <div class="sb-egg" id="sb-egg"></div>
 </div>
 
 <div id="toast"></div>
 
-<!-- upload overlay: shown only for admin sessions -->
-<div id="upload-overlay" class="upload-overlay" style="display:none">
-  <div class="upload-panel">
-    <div class="upload-panel-head">
-      <span>Upload</span>
-      <button class="nav-btn icon-only" onclick="closeUpload()" style="width:28px;height:28px;font-size:18px;border:none;">×</button>
+<!-- Upload overlay -->
+<div id="upload-overlay" style="display:none">
+  <div class="overlay" onclick="e => { if(e.target===this) closeUpload(); }">
+    <div class="panel" onclick="event.stopPropagation()">
+      <div class="panel-head">
+        <span class="panel-title">Upload files</span>
+        <button class="panel-close" onclick="closeUpload()">×</button>
+      </div>
+      <div class="upload-drop" id="upload-drop" onclick="document.getElementById('file-input').click()">
+        <div class="drop-icon">📁</div>
+        <b>Click to browse</b> or drag & drop files here
+      </div>
+      <input type="file" id="file-input" multiple style="display:none">
+      <div class="upload-list" id="upload-list"></div>
     </div>
-    <div class="upload-drop" id="upload-drop" onclick="document.getElementById('file-input').click()">
-      <b>click to browse</b> or drag files here
+  </div>
+</div>
+
+<!-- Torrent overlay -->
+<div id="torrent-overlay" style="display:none">
+  <div class="overlay" onclick="if(event.target===this) closeTorrent()">
+    <div class="panel" onclick="event.stopPropagation()">
+      <div class="panel-head">
+        <span class="panel-title">🧲 Add torrent</span>
+        <button class="panel-close" onclick="closeTorrent()">×</button>
+      </div>
+      <div class="torrent-input-wrap">
+        <textarea class="torrent-input" id="torrent-uri" placeholder="magnet:?xt=urn:btih:... or https://example.com/file.torrent"></textarea>
+      </div>
+      <div class="torrent-actions">
+        <button class="pill-btn accent" style="flex:1" onclick="submitTorrent()">Start download</button>
+        <button class="pill-btn outline" onclick="closeTorrent()">Cancel</button>
+      </div>
     </div>
-    <input type="file" id="file-input" multiple style="display:none">
-    <div class="upload-list" id="upload-list"></div>
+  </div>
+</div>
+
+<!-- Rename overlay -->
+<div id="rename-overlay" style="display:none">
+  <div class="overlay" onclick="if(event.target===this) closeRename()">
+    <div class="panel" onclick="event.stopPropagation()">
+      <div class="panel-head">
+        <span class="panel-title">Rename file</span>
+        <button class="panel-close" onclick="closeRename()">×</button>
+      </div>
+      <div class="rename-wrap">
+        <input class="rename-input" id="rename-input" type="text" placeholder="New filename" autocomplete="off">
+        <div class="rename-actions">
+          <button class="pill-btn accent" style="flex:1" onclick="submitRename()">Rename</button>
+          <button class="pill-btn outline" onclick="closeRename()">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script src="/static/theme.js"></script>
 <script>
-let _all = [], _ext = null, _sort = { col: 'mtime', dir: -1 }, _isAdmin = false;
+// ── State ──────────────────────────────────────────────────────────────────────
+let _all = [], _dirs = [], _ext = null, _isAdmin = false, _canDelete = false, _canWrite = false;
+let _torrentEnabled = false;
+let _sort = { col: 'mtime', dir: -1 };
+let _path = '';  // current directory path relative to DOWNLOADS_DIR
+let _renamingFile = null;
 
+// ── Utils ──────────────────────────────────────────────────────────────────────
 const fsize = b => {
+  if (b === 0) return '0 B';
   const u = ['B','KB','MB','GB','TB']; let i = 0;
   while (b >= 1024 && i < 4) { b /= 1024; i++; }
   return b.toFixed(i ? 1 : 0) + '\u202f' + u[i];
@@ -427,12 +638,16 @@ const fdate = ts => {
 
 const gext = n => { const i = n.lastIndexOf('.'); return i > 0 ? n.slice(i+1).toLowerCase() : ''; };
 
-const badgeCls = e => {
-  if (['zip','gz','xz','zst','tar','7z','bz2','lz4','br','rar'].includes(e)) return 'b-arc';
-  if (['img','iso','bin','raw','dmg','rom','dat','elf','vhd'].includes(e))    return 'b-img';
-  if (['apk','ota','deb','rpm','pkg','exe','msi'].includes(e))                return 'b-pkg';
-  if (['txt','log','md','json','xml','sh','yaml','toml','cfg','py','js'].includes(e)) return 'b-txt';
-  return 'b-def';
+const iconForExt = e => {
+  if (['zip','gz','xz','zst','tar','7z','bz2','lz4','br','rar'].includes(e)) return ['📦','fi-arc'];
+  if (['img','iso','bin','raw','dmg','rom','dat','elf','vhd'].includes(e))    return ['💿','fi-img'];
+  if (['apk','ota','deb','rpm','pkg','exe','msi'].includes(e))                return ['📦','fi-pkg'];
+  if (['txt','log','md','json','xml','sh','yaml','toml','cfg','py','js','ts','html','css'].includes(e)) return ['📄','fi-txt'];
+  if (['mp4','mkv','avi','mov','webm','flv','m4v'].includes(e))               return ['🎬','fi-vid'];
+  if (['mp3','flac','aac','wav','ogg','m4a'].includes(e))                     return ['🎵','fi-img'];
+  if (['jpg','jpeg','png','gif','webp','svg','bmp','avif'].includes(e))       return ['🖼','fi-img'];
+  if (['pdf'].includes(e))                                                     return ['📋','fi-txt'];
+  return ['📄','fi-def'];
 };
 
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -445,103 +660,97 @@ function toast(msg, dur = 2200) {
   _tt = setTimeout(() => el.classList.remove('show'), dur);
 }
 
-// ── easter eggs ───────────────────────────────────────────────────────────────
+// ── Easter eggs ────────────────────────────────────────────────────────────────
 const EGGS = [
   "the cloud is just someone else's downloads folder",
   "your files are safe. probably.",
   "bandwidth: consumed. regrets: none.",
   "beep boop, serving files",
-  "server uptime: longer than my last relationship",
   "404: chill not found",
   "these bytes were hand-selected for freshness",
-  "compressing sadness... done.",
   "rm -rf /feelings",
-  "it's not a bug, it's a file",
   "current vibe: S3 but worse",
-  "a rubber duck helped write this",
   "works on my machine \\_(ツ)_/",
   "no files were harmed in this serving",
-  "estimated time: soon™",
   "powered by caffeine and spite",
   "sudo make me a sandwich",
   "git blame: everyone else",
-  "this message appears every ~18 seconds",
 ];
-
-const DL_QUIPS = [
-  '↓ snagged', '↓ yoink', '↓ got it', '↓ yours now',
-  '↓ taken', '↓ handled', '↓ done', '↓ done', '↓ done', '↓ done',
-];
-
-const SEARCH_EGGS = {
-  'rick':     '🎵 never gonna give you up',
-  'sudo':     '⚡ permission denied, nice try',
-  'rm -rf':   '💀 bold.',
-  'help':     "it's just files. you'll figure it out.",
-  'free':     'nothing is free. nothing.',
-  'hack':     '🎩 sir this is a file server',
-  'porn':     '👀 really now',
-  '42':       'the answer was in the downloads all along',
-  'minecraft':'⛏️ wrong server. literally.',
-  'todo':     '📋 noted. still not done.',
-  'money':    '💸 left pocket. right pocket. same amount.',
-  'why':      'because someone had to.',
-  'test':     'this is not a test.',
-};
-
 const sbEgg = document.getElementById('sb-egg');
 let eggIdx = Math.floor(Math.random() * EGGS.length);
 function cycleEgg() {
-  if (Math.random() > 0.45) return;
+  if (Math.random() > .45) return;
   sbEgg.style.opacity = '0';
-  setTimeout(() => {
-    sbEgg.textContent = EGGS[eggIdx % EGGS.length];
-    eggIdx++;
-    sbEgg.style.opacity = '1';
-  }, 400);
+  setTimeout(() => { sbEgg.textContent = EGGS[eggIdx++ % EGGS.length]; sbEgg.style.opacity = '1'; }, 400);
 }
-setInterval(cycleEgg, 18000);
-setTimeout(cycleEgg, 5000);
+setInterval(cycleEgg, 18000); setTimeout(cycleEgg, 5000);
 
-// konami
-const KONAMI = [38,38,40,40,37,39,37,39,66,65];
-let _kb = [];
+const KONAMI = [38,38,40,40,37,39,37,39,66,65]; let _kb = [];
 document.addEventListener('keydown', e => {
-  _kb.push(e.keyCode);
-  if (_kb.length > KONAMI.length) _kb.shift();
-  if (JSON.stringify(_kb) === JSON.stringify(KONAMI)) {
-    toast('🎮 +30 lives granted. they do nothing.', 4000);
-    _kb = [];
-  }
+  _kb.push(e.keyCode); if (_kb.length > KONAMI.length) _kb.shift();
+  if (JSON.stringify(_kb) === JSON.stringify(KONAMI)) { toast('🎮 +30 lives granted. they do nothing.', 4000); _kb = []; }
 });
-
-// brand click
 let _bc = 0, _bt;
 document.getElementById('brand').addEventListener('click', () => {
-  _bc++;
-  clearTimeout(_bt);
-  _bt = setTimeout(() => _bc = 0, 1000);
+  _bc++; clearTimeout(_bt); _bt = setTimeout(() => _bc = 0, 1000);
   if (_bc === 5) { toast('🐣 secret found. prize: nothing.'); _bc = 0; }
 });
 
-// ── data ──────────────────────────────────────────────────────────────────────
-async function load() {
+// ── Load data ──────────────────────────────────────────────────────────────────
+async function load(path) {
+  if (path !== undefined) _path = path;
   try {
-    const [fr, fs] = await Promise.all([fetch('/files'), fetch('/session')]);
+    const url = '/files' + (_path ? '?path=' + encodeURIComponent(_path) : '');
+    const [fr, fs] = await Promise.all([fetch(url), fetch('/session')]);
     if (fr.status === 401) { location.href = '/'; return; }
-    _all = await fr.json();
-    const prev = _isAdmin;
-    _isAdmin = (await fs.json()).admin || false;
-    if (_isAdmin !== prev) _applyAdmin();
+    const data = await fr.json();
+    const sess = await fs.json();
+    _all  = data.files || [];
+    _dirs = data.dirs  || [];
+    const prevAdmin = _isAdmin;
+    _isAdmin       = sess.admin || false;
+    _canDelete     = sess.can_delete || false;
+    _canWrite      = sess.can_write || false;
+    _torrentEnabled = sess.torrent_enabled || false;
+    if (_isAdmin !== prevAdmin || _canDelete !== prevAdmin) _applyPerms();
   } catch { return; }
-  buildSidebar(); buildTabs(); render();
+  buildBreadcrumb();
+  buildSidebar();
+  buildTabs();
+  buildSortBar();
+  render();
 }
 
-function _applyAdmin() {
-  document.getElementById('upload-btn').style.display = _isAdmin ? '' : 'none';
+function _applyPerms() {
+  document.getElementById('upload-btn').style.display = _canWrite ? '' : 'none';
+  document.getElementById('torrent-btn').style.display = _torrentEnabled ? '' : 'none';
   document.getElementById('table-area').classList.toggle('admin', _isAdmin);
+  document.getElementById('table-area').classList.toggle('can-delete', _canDelete && !_isAdmin);
+  const adminSec = document.getElementById('s-admin-section');
+  adminSec.style.display = _isAdmin ? '' : 'none';
+  const toggle = document.getElementById('torrent-toggle');
+  toggle.classList.toggle('on', _torrentEnabled);
 }
 
+// ── Breadcrumb ──────────────────────────────────────────────────────────────────
+function buildBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  if (!_path) { bc.innerHTML = ''; return; }
+  const parts = _path.split('/').filter(Boolean);
+  let html = `<button class="bc-item" onclick="load('')">root</button>`;
+  parts.forEach((p, i) => {
+    html += `<span class="bc-sep">›</span>`;
+    const subPath = parts.slice(0, i+1).join('/');
+    if (i === parts.length - 1) {
+      html += `<span class="bc-item current">${esc(p)}</span>`;
+    } else {
+      html += `<button class="bc-item" onclick="load('${esc(subPath)}')">${esc(p)}</button>`;
+    }
+  });
+  bc.innerHTML = html;
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────────
 function extMap() {
   const m = {};
   _all.forEach(f => { const e = gext(f.name) || 'other'; m[e] = (m[e]||0) + 1; });
@@ -551,20 +760,24 @@ function extMap() {
 function buildSidebar() {
   const total = _all.reduce((s,f) => s + f.size, 0);
   document.getElementById('d-cnt').textContent = _all.length;
+  document.getElementById('d-dirs').textContent = _dirs.length;
   document.getElementById('d-sz').textContent = fsize(total);
   document.getElementById('s-ext-list').innerHTML =
     `<button class="s-ext${_ext===null?' on':''}" onclick="setExt(null)">
-       <span class="s-ext-name">All</span><span class="s-ext-n">${_all.length}</span>
+       <span class="s-ext-name">All files</span><span class="s-ext-n">${_all.length}</span>
      </button>` +
     extMap().map(([e,n]) =>
       `<button class="s-ext${_ext===e?' on':''}" onclick="setExt('${esc(e)}')">
          <span class="s-ext-name">.${esc(e)}</span><span class="s-ext-n">${n}</span>
        </button>`
     ).join('');
+  _applyPerms();
 }
 
+// ── Tabs ───────────────────────────────────────────────────────────────────────
 function buildTabs() {
-  document.getElementById('filter-strip').innerHTML =
+  const ftabs = document.getElementById('ftabs');
+  ftabs.innerHTML =
     `<button class="ftab${_ext===null?' on':''}" onclick="setExt(null)">All <span class="n">${_all.length}</span></button>` +
     extMap().map(([e,n]) =>
       `<button class="ftab${_ext===e?' on':''}" onclick="setExt('${esc(e)}')">.${esc(e)} <span class="n">${n}</span></button>`
@@ -573,10 +786,46 @@ function buildTabs() {
 
 function setExt(e) { _ext = e; buildSidebar(); buildTabs(); render(); }
 
-const COPY_SVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-const DL_SVG    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-const CHECK_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-const DEL_SVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+// ── Sort bar ───────────────────────────────────────────────────────────────────
+const SORT_OPTS = [
+  { col: 'name',  label: 'Name' },
+  { col: 'size',  label: 'Size' },
+  { col: 'mtime', label: 'Date' },
+  { col: 'ext',   label: 'Type' },
+];
+
+function buildSortBar() {
+  const bar = document.getElementById('sort-bar');
+  bar.innerHTML = `<span class="sort-label">Sort</span>` +
+    SORT_OPTS.map(o =>
+      `<button class="sort-btn${_sort.col===o.col?' on':''}" onclick="setSort('${o.col}')">
+        ${o.label}${_sort.col===o.col ? `<span class="arr">${_sort.dir>0?'↑':'↓'}</span>` : ''}
+      </button>`
+    ).join('');
+}
+
+function setSort(col) {
+  _sort = { col, dir: _sort.col === col ? -_sort.dir : -1 };
+  buildSortBar();
+  render();
+}
+
+// ── SVG icons ─────────────────────────────────────────────────────────────────
+const COPY_SVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const DL_SVG     = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const CHECK_SVG  = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const DEL_SVG    = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`;
+const EDIT_SVG   = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+const FOLDER_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+const SEARCH_EGGS = {
+  'rick': '🎵 never gonna give you up',
+  'sudo': '⚡ permission denied, nice try',
+  'rm -rf': '💀 bold.',
+  'help': "it's just files. you'll figure it out.",
+  '42': 'the answer was in the downloads all along',
+};
 
 function render() {
   const q = document.getElementById('q').value.toLowerCase().trim();
@@ -586,14 +835,18 @@ function render() {
     }
   }
 
+  // Filter files
   let rows = _all.filter(f =>
     (_ext ? gext(f.name) === _ext : true) &&
     (!q || f.name.toLowerCase().includes(q))
   );
 
+  // Sort
   const { col, dir } = _sort;
   rows.sort((a,b) => {
-    let av = a[col], bv = b[col];
+    let av, bv;
+    if (col === 'ext') { av = gext(a.name); bv = gext(b.name); }
+    else { av = a[col]; bv = b[col]; }
     if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
     return av < bv ? -dir : av > bv ? dir : 0;
   });
@@ -607,54 +860,83 @@ function render() {
     document.getElementById('sb-shown').textContent = rows.length;
   } else sw.style.display = 'none';
 
+  // Update sort arrows in thead
   ['name','size','mtime'].forEach(c => {
     const el = document.getElementById('arr-' + c);
     const th = document.querySelector(`[data-col="${c}"]`);
+    if (!el || !th) return;
     if (c === col) { th.classList.add('on'); el.textContent = dir > 0 ? ' ↑' : ' ↓'; }
     else           { th.classList.remove('on'); el.textContent = ''; }
   });
 
   const wrap = document.getElementById('rows');
-  if (!rows.length) {
+
+  if (!_dirs.length && !rows.length) {
     wrap.innerHTML = `
       <div class="empty">
-        <div class="empty-num">${q ? '404' : '000'}</div>
-        <div class="empty-msg">${q ? 'nothing matches &ldquo;' + esc(q) + '&rdquo;' : 'no files yet'}</div>
+        <div class="empty-icon">${q ? '🔍' : '📭'}</div>
+        <div class="empty-msg">${q ? 'Nothing matches &ldquo;' + esc(q) + '&rdquo;' : 'No files yet'}</div>
       </div>`;
     return;
   }
 
-  wrap.innerHTML = rows.map((f, i) => {
+  // Render dirs first
+  let html = '';
+  if (!q) {
+    _dirs.forEach(d => {
+      const subPath = _path ? _path + '/' + d.name : d.name;
+      html += `<div class="frow dir-row" onclick="load('${esc(subPath)}')">
+        <div class="fname-cell">
+          <div class="file-icon fi-dir">${FOLDER_SVG}</div>
+          <div class="fname-info">
+            <div class="fname-main">${esc(d.name)}</div>
+            <div class="fname-ext">directory</div>
+            <div class="fname-meta">${fdate(d.mtime)}</div>
+          </div>
+        </div>
+        <div class="fsize">—</div>
+        <div class="fdate">${fdate(d.mtime)}</div>
+        <div class="fact"></div>
+      </div>`;
+    });
+  }
+
+  // Render files
+  rows.forEach((f, i) => {
     const e = gext(f.name);
-    return `<div class="frow">
+    const [icon, cls] = iconForExt(e);
+    const baseName = f.name.includes('.') ? f.name.slice(0, f.name.lastIndexOf('.')) : f.name;
+    const ext = e ? '.' + e : '';
+    html += `<div class="frow">
       <div class="fname-cell">
-        <span class="badge ${badgeCls(e)}">${esc(e)||'?'}</span>
+        <div class="file-icon ${cls}">${icon}</div>
         <div class="fname-info">
           <div class="fname-main" title="${esc(f.name)}">${esc(f.name)}</div>
-          <div class="fname-meta">${fsize(f.size)} &middot; ${fdate(f.mtime)}</div>
+          <div class="fname-ext" style="font-family:'Geist Mono',monospace;font-size:10px">${esc(ext||'—')}</div>
+          <div class="fname-meta">${fsize(f.size)} · ${fdate(f.mtime)}</div>
         </div>
       </div>
       <div class="fsize">${fsize(f.size)}</div>
-      <div class="fdate" style="padding-left:8px">${fdate(f.mtime)}</div>
+      <div class="fdate">${fdate(f.mtime)}</div>
       <div class="fact">
         <button class="act-btn" id="cb${i}" onclick="copyLink('${esc(f.name)}','cb${i}')" title="Copy link">${COPY_SVG}</button>
-        <button class="act-btn" id="db${i}" onclick="dl('${esc(f.name)}','db${i}')" title="Download">${DL_SVG}</button>
-        ${_isAdmin ? `<button class="act-btn" id="xb${i}" onclick="delFile('${esc(f.name)}','xb${i}')" title="Delete">${DEL_SVG}</button>` : ''}
+        <button class="act-btn" id="db${i}" onclick="dlFile('${esc(f.name)}','db${i}')" title="Download">${DL_SVG}</button>
+        ${_isAdmin ? `<button class="act-btn" id="eb${i}" onclick="openRename('${esc(f.name)}')" title="Rename">${EDIT_SVG}</button>` : ''}
+        ${_canDelete ? `<button class="act-btn danger" id="xb${i}" onclick="delFile('${esc(f.name)}','xb${i}')" title="Delete">${DEL_SVG}</button>` : ''}
       </div>
     </div>`;
-  }).join('');
+  });
+
+  wrap.innerHTML = html;
 }
 
+// Wire up sort column headers
 document.querySelectorAll('.th[data-col]').forEach(th => {
-  th.addEventListener('click', () => {
-    const c = th.dataset.col;
-    _sort = { col: c, dir: _sort.col === c ? -_sort.dir : -1 };
-    render();
-  });
+  th.addEventListener('click', () => setSort(th.dataset.col));
 });
-
 document.getElementById('q').addEventListener('input', render);
 
+// ── Actions ────────────────────────────────────────────────────────────────────
 async function copyLink(name, id) {
   const btn = document.getElementById(id);
   if (!btn) return;
@@ -664,12 +946,13 @@ async function copyLink(name, id) {
     const { url } = await r.json();
     await navigator.clipboard.writeText(location.origin + url);
     btn.classList.add('ok'); btn.innerHTML = CHECK_SVG;
-    toast('link copied to clipboard');
+    toast('📋 link copied');
     setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = COPY_SVG; }, 2500);
   } catch { toast('clipboard unavailable'); }
 }
 
-function dl(name, id) {
+const DL_QUIPS = ['↓ got it', '↓ yours now', '↓ snagged', '↓ yoink', '↓ handled'];
+function dlFile(name, id) {
   const btn = document.getElementById(id);
   if (!btn) return;
   const a = document.createElement('a');
@@ -678,54 +961,74 @@ function dl(name, id) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => {
     btn.classList.add('ok'); btn.innerHTML = CHECK_SVG;
-    const q = DL_QUIPS[Math.floor(Math.random() * DL_QUIPS.length)];
-    toast(`${q}: ${name.length > 36 ? name.slice(0,36)+'…' : name}`);
+    toast(`${DL_QUIPS[Math.floor(Math.random()*DL_QUIPS.length)]}: ${name.length>40?name.slice(0,40)+'…':name}`);
     setTimeout(() => { btn.classList.remove('ok'); btn.innerHTML = DL_SVG; }, 3000);
   }, 300);
 }
 
-// ── delete: two-click confirm ─────────────────────────────────────────────────
 function delFile(name, id) {
   const btn = document.getElementById(id);
   if (!btn) return;
   if (!btn.classList.contains('armed')) {
     btn.classList.add('armed');
-    toast('click again to confirm delete', 2500);
+    toast('Click again to confirm delete', 2500);
     setTimeout(() => btn.classList.remove('armed'), 3000);
     return;
   }
   btn.classList.remove('armed');
   fetch('/files/' + encodeURIComponent(name), { method: 'DELETE' })
     .then(async r => {
-      if (r.ok) {
-        toast('deleted: ' + (name.length > 36 ? name.slice(0,36)+'…' : name));
-        load();
-      } else {
-        const d = await r.json().catch(() => ({}));
-        toast(d.error || 'delete failed');
-      }
+      if (r.ok) { toast('🗑 deleted: ' + (name.length>40?name.slice(0,40)+'…':name)); load(); }
+      else { const d = await r.json().catch(() => ({})); toast(d.error || 'delete failed'); }
     })
     .catch(() => toast('delete failed'));
 }
 
-// ── upload ────────────────────────────────────────────────────────────────────
+// ── Rename ─────────────────────────────────────────────────────────────────────
+function openRename(name) {
+  _renamingFile = name;
+  const input = document.getElementById('rename-input');
+  input.value = name;
+  document.getElementById('rename-overlay').style.display = '';
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+function closeRename() {
+  _renamingFile = null;
+  document.getElementById('rename-overlay').style.display = 'none';
+}
+async function submitRename() {
+  const newName = document.getElementById('rename-input').value.trim();
+  if (!newName || !_renamingFile) return;
+  if (newName === _renamingFile) { closeRename(); return; }
+  try {
+    const r = await fetch('/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old: _renamingFile, new: newName }),
+    });
+    const d = await r.json();
+    if (r.ok) { toast(`✏️ renamed to ${newName}`); closeRename(); load(); }
+    else toast(d.error || 'rename failed');
+  } catch { toast('rename failed'); }
+}
+document.getElementById('rename-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitRename();
+  if (e.key === 'Escape') closeRename();
+});
+
+// ── Upload ─────────────────────────────────────────────────────────────────────
 function openUpload() {
   document.getElementById('upload-list').innerHTML = '';
-  document.getElementById('upload-overlay').style.display = 'flex';
+  document.getElementById('upload-overlay').style.display = '';
 }
+function closeUpload() { document.getElementById('upload-overlay').style.display = 'none'; }
 
-function closeUpload() {
-  document.getElementById('upload-overlay').style.display = 'none';
-}
-
-// click outside panel to close
 document.getElementById('upload-overlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeUpload();
+  if (e.target.classList.contains('overlay')) closeUpload();
 });
 
 document.getElementById('file-input').addEventListener('change', e => {
-  uploadFiles(Array.from(e.target.files));
-  e.target.value = '';
+  uploadFiles(Array.from(e.target.files)); e.target.value = '';
 });
 
 const _drop = document.getElementById('upload-drop');
@@ -735,18 +1038,16 @@ _drop.addEventListener('drop', e => {
   e.preventDefault(); _drop.classList.remove('drag-over');
   uploadFiles(Array.from(e.dataTransfer.files));
 });
-
-// dragging a file over the window opens the panel automatically (admin only)
 document.addEventListener('dragover', e => {
   e.preventDefault();
-  if (_isAdmin) document.getElementById('upload-overlay').style.display = 'flex';
+  if (_canWrite) document.getElementById('upload-overlay').style.display = '';
 });
 
 async function uploadFiles(files) {
   if (!files.length) return;
   const list = document.getElementById('upload-list');
   for (const file of files) {
-    const item  = document.createElement('div'); item.className = 'upload-item';
+    const item = document.createElement('div'); item.className = 'upload-item';
     const nameEl = document.createElement('div'); nameEl.className = 'upload-iname'; nameEl.textContent = file.name;
     const track  = document.createElement('div'); track.className = 'upload-track';
     const bar    = document.createElement('div'); bar.className = 'upload-bar';
@@ -754,7 +1055,6 @@ async function uploadFiles(files) {
     const meta = document.createElement('div'); meta.className = 'upload-imeta'; meta.textContent = fsize(file.size);
     item.append(nameEl, track, meta);
     list.appendChild(item);
-
     await new Promise(res => {
       const xhr = new XMLHttpRequest();
       xhr.upload.onprogress = e => {
@@ -764,7 +1064,7 @@ async function uploadFiles(files) {
       };
       xhr.onload = () => {
         if (xhr.status === 200) {
-          bar.style.width = '100%'; meta.textContent = 'done'; load();
+          bar.style.width = '100%'; meta.textContent = '✓ done'; load();
         } else {
           meta.textContent = 'failed (' + xhr.status + ')';
           bar.style.background = 'var(--red)';
@@ -772,21 +1072,66 @@ async function uploadFiles(files) {
         res();
       };
       xhr.onerror = () => { meta.textContent = 'network error'; res(); };
-      const form = new FormData();
-      form.append('file', file);
-      xhr.open('POST', '/upload');
-      xhr.send(form);
+      const form = new FormData(); form.append('file', file);
+      xhr.open('POST', '/upload'); xhr.send(form);
     });
   }
 }
 
+// ── Torrent ────────────────────────────────────────────────────────────────────
+function openTorrent() {
+  document.getElementById('torrent-uri').value = '';
+  document.getElementById('torrent-overlay').style.display = '';
+  setTimeout(() => document.getElementById('torrent-uri').focus(), 50);
+}
+function closeTorrent() { document.getElementById('torrent-overlay').style.display = 'none'; }
+
+document.getElementById('torrent-overlay').addEventListener('click', e => {
+  if (e.target.classList.contains('overlay')) closeTorrent();
+});
+
+async function submitTorrent() {
+  const uri = document.getElementById('torrent-uri').value.trim();
+  if (!uri) return;
+  try {
+    const r = await fetch('/torrent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uri }),
+    });
+    const d = await r.json();
+    if (r.ok) { toast('🧲 torrent started!', 3000); closeTorrent(); }
+    else toast(d.error || 'failed to start torrent');
+  } catch { toast('network error'); }
+}
+
+// ── Admin: torrent flag toggle ──────────────────────────────────────────────────
+async function toggleTorrentFlag() {
+  const newVal = !_torrentEnabled;
+  try {
+    const r = await fetch('/flags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ torrent_enabled: newVal }),
+    });
+    if (r.ok) {
+      _torrentEnabled = newVal;
+      document.getElementById('torrent-toggle').classList.toggle('on', newVal);
+      document.getElementById('torrent-btn').style.display = newVal ? '' : 'none';
+      toast(newVal ? '🧲 torrents enabled' : '⛔ torrents disabled');
+    }
+  } catch { toast('failed to toggle'); }
+}
+
+// ── Logout ─────────────────────────────────────────────────────────────────────
 async function doLogout() {
   await fetch('/logout', { method: 'POST' });
   location.href = '/';
 }
 
+// ── Init ───────────────────────────────────────────────────────────────────────
 load();
-setInterval(load, 30000);
+setInterval(() => load(), 30000);
 </script>
 </body>
 </html>
