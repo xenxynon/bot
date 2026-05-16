@@ -487,30 +487,6 @@ async def cmd_help(_, msg):
                     "**info:** /ping /status  **auth:** /allow /revoke\n"
                     "**admin:** /torrent (on/off — toggles magnet/torrent downloads)", quote=True)
 
-
-@app.on_message(filters.command("space"))
-@auth
-async def cmd_space(_, msg):
-    import shutil
-    total, used, free = shutil.disk_usage(DOWNLOADS_DIR)
-    dl_size = sum(f.stat().st_size for f in DOWNLOADS_DIR.rglob("*") if f.is_file())
-    dl_files = sum(1 for f in DOWNLOADS_DIR.rglob("*") if f.is_file())
-    def bar(pct, w=16):
-        filled = round(pct / 100 * w)
-        return "█" * filled + "░" * (w - filled)
-    used_pct = used / total * 100
-    dl_pct   = dl_size / total * 100
-    lines = [
-        "💾 **disk usage**",
-        f"`{bar(used_pct)}` {used_pct:.1f}%",
-        f"  used  `{fsize(used)}`  /  total `{fsize(total)}`  /  free `{fsize(free)}`",
-        "",
-        f"📁 **downloads dir**  (`{dl_files}` files)",
-        f"`{bar(dl_pct)}` {dl_pct:.1f}% of disk",
-        f"  `{fsize(dl_size)}`",
-    ]
-    await msg.reply("\n".join(lines), quote=True)
-
 @app.on_message(filters.command("ping"))
 async def cmd_ping(_, msg):
     t0 = time.time(); r = await msg.reply("…", quote=True)
