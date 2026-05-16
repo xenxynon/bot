@@ -1144,13 +1144,13 @@ function _applyPerms() {
   const hasActions = _canWrite || _torrentEnabled || _isAdmin;
   document.getElementById('panel-btn').style.display = hasActions ? '' : 'none';
   document.getElementById('sp-upload-section').style.display = _canWrite ? '' : 'none';
-  document.getElementById('sp-fetch-section').style.display = _isAdmin ? '' : 'none';
+  document.getElementById('sp-fetch-section').style.display = _canWrite ? '' : 'none';
   document.getElementById('sp-torrent-section').style.display = _torrentEnabled ? '' : 'none';
   document.getElementById('sp-admin-section').style.display = _isAdmin ? '' : 'none';
   document.getElementById('table-wrap').classList.toggle('admin', true);
   document.getElementById('torrent-toggle').classList.toggle('on', _torrentEnabled);
 
-  if (_isAdmin && !_progressInterval) {
+  if (_canWrite && !_progressInterval) {
     _progressInterval = setInterval(pollProgress, 2000);
   }
 }
@@ -1561,17 +1561,20 @@ document.getElementById('fetch-url-input').addEventListener('keydown', e => {
 
 // ── Progress polling ──────────────────────────────────────────────────────────
 async function pollProgress() {
-  if (!_isAdmin) return;
+  if (!_canWrite) return;
   try {
-    const [tr, fr] = await Promise.all([
-      fetch('/torrent/progress').then(r => r.json()).catch(() => ({})),
-      fetch('/fetch/progress').then(r => r.json()).catch(() => ({})),
-    ]);
-    renderTorrentJobs(tr);
+    const fr = await fetch('/fetch/progress').then(r => r.json()).catch(() => ({}));
     renderFetchJobs(fr);
-    // If any jobs finished, refresh file list
-    const anyDone = [...Object.values(tr), ...Object.values(fr)].some(j => j.status === 'done');
-    if (anyDone) load();
+
+    if (_isAdmin) {
+      const tr = await fetch('/torrent/progress').then(r => r.json()).catch(() => ({}));
+      renderTorrentJobs(tr);
+      const anyDone = [...Object.values(tr), ...Object.values(fr)].some(j => j.status === 'done');
+      if (anyDone) load();
+    } else {
+      const anyDone = Object.values(fr).some(j => j.status === 'done');
+      if (anyDone) load();
+    }
   } catch {}
 }
 

@@ -516,7 +516,7 @@ async def handle_torrent_cancel(req):
     return web.json_response({"ok": True})
 
 async def handle_fetch_url(req):
-    if not _check(req) or not _is_admin(req):
+    if not _check(req):
         return web.json_response({"error": "unauthorized"}, status=401)
     try:
         body = await req.json(); url = (body.get("url") or "").strip()
@@ -554,35 +554,47 @@ async def handle_fetch_url(req):
         "status": "starting", "progress": 0, "speed": 0, "eta": -1,
         "total": 0, "done": 0, "name": filename, "url": url,
         "started": time.time(), "error": None, "category": _cat_from_ext(filename),
+        "owner": username,
     }
     asyncio.create_task(_run_fetch(job_id, url, filename, username))
     return web.json_response({"ok": True, "job_id": job_id, "name": filename})
 
 async def handle_fetch_progress(req):
-    if not _check(req) or not _is_admin(req):
+    if not _check(req):
         return web.json_response({"error": "unauthorized"}, status=401)
-    return web.json_response(dict(_fetch_jobs))
+    user = _who(req)
+    if _is_admin(req):
+        return web.json_response(dict(_fetch_jobs))
+    # Regular users see only their own jobs
+    own = {jid: j for jid, j in _fetch_jobs.items() if j.get("owner") == user}
+    return web.json_response(own)
 
 async def handle_fetch_cancel(req):
-    if not _check(req) or not _is_admin(req):
+    if not _check(req):
         return web.json_response({"error": "unauthorized"}, status=401)
     job_id = req.match_info["job_id"]; job = _fetch_jobs.get(job_id)
     if not job: return web.json_response({"error": "not found"}, status=404)
+    if not _is_admin(req) and job.get("owner") != _who(req):
+        return web.json_response({"error": "forbidden"}, status=403)
     job["cancelled"] = True; job["status"] = "cancelled"
     return web.json_response({"ok": True})
 
 async def handle_fetch_retry(req):
-    if not _check(req) or not _is_admin(req):
+    if not _check(req):
         return web.json_response({"error": "unauthorized"}, status=401)
     job_id = req.match_info["job_id"]; old = _fetch_jobs.get(job_id)
     if not old or old["status"] not in ("failed","cancelled"):
         return web.json_response({"error": "job not retryable"}, status=400)
-    url = old["url"]; filename = old["name"]; username = _who(req)
+    username = _who(req)
+    if not _is_admin(req) and old.get("owner") != username:
+        return web.json_response({"error": "forbidden"}, status=403)
+    url = old["url"]; filename = old["name"]
     new_id = secrets.token_hex(8)
     _fetch_jobs[new_id] = {
         "status": "starting", "progress": 0, "speed": 0, "eta": -1,
         "total": 0, "done": 0, "name": filename, "url": url,
         "started": time.time(), "error": None, "category": old.get("category","other"),
+        "owner": username,
     }
     asyncio.create_task(_run_fetch(new_id, url, filename, username))
     return web.json_response({"ok": True, "job_id": new_id})
