@@ -7,11 +7,13 @@ import mimetypes
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import tempfile
 import time
 import urllib.parse
 import urllib.request
+import zipfile
 from pathlib import Path
 
 from aiohttp import web, ClientSession, ClientTimeout
@@ -72,9 +74,21 @@ def _atomic_write(path, text):
 def _pw_hash(pw): return hashlib.sha256(pw.encode()).hexdigest()
 
 def _sanitize_filename(name):
-    name = Path(name).name
+    name = Path(name).name            # strip directory traversal
+    name = name.replace("\x00", "")   # strip null bytes
     name = re.sub(r"[^\w.\-+ ]", "_", name).strip()
-    return name or "upload"
+    name = re.sub(r"\.{2,}", ".", name)  # collapse double-dots
+    if not name or name in (".", ".."): return "upload"
+    return name
+
+def _sanitize_dirname(name):
+    """Sanitize a directory name (no slashes allowed)."""
+    name = Path(name).name
+    name = name.replace("\x00", "")
+    name = re.sub(r"[^\w.\-+ ]", "_", name).strip()
+    name = re.sub(r"\.{2,}", ".", name)
+    if not name or name in (".", ".."): return None
+    return name
 
 def _is_blocked(name):
     parts = name.lower().split(".")
@@ -270,8 +284,128 @@ async def handle_root(req):
     if _check(req): return web.Response(text=_tpl("explorer.html"), content_type="text/html")
     return web.Response(text=_tpl("login.html", error=""), content_type="text/html")
 
+async def handle_mkdir(req):
+    """Create a new subfolder inside the downloads dir (or a subfolder of it)."""
+    if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
+    try:
+        body = await req.json()
+        parent_rel  = body.get("path", "").lstrip("/")
+        folder_name = _sanitize_dirname(body.get("name", ""))
+    except Exception: return web.json_response({"error": "bad request"}, status=400)
+    if not folder_name:
+        return web.json_response({"error": "invalid folder name"}, status=400)
+    parent = _safe_dir(parent_rel)
+    if parent is None:
+        return web.json_response({"error": "invalid parent path"}, status=400)
+    new_dir = parent / folder_name
+    try:
+        resolved = new_dir.resolve()
+        if not str(resolved).startswith(str(DOWNLOADS_DIR)):
+            return web.json_response({"error": "invalid path"}, status=400)
+    except Exception:
+        return web.json_response({"error": "invalid path"}, status=400)
+    if new_dir.exists():
+        return web.json_response({"error": "already exists"}, status=409)
+    try:
+        new_dir.mkdir(parents=False)
+    except Exception as ex:
+        return web.json_response({"error": str(ex)}, status=500)
+    return web.json_response({"ok": True, "name": folder_name})
+
+
+async def handle_zip_folder(req):
+    """Stream a folder as a zip archive."""
+    if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
+    rel = req.rel_url.query.get("path", "").lstrip("/")
+    if not rel: return web.json_response({"error": "path required"}, status=400)
+    folder = _safe_dir(rel)
+    if folder is None or not folder.is_dir() or folder == DOWNLOADS_DIR:
+        raise web.HTTPNotFound()
+    zip_name = urllib.parse.quote(folder.name + ".zip", safe="")
+    resp = web.StreamResponse(headers={
+        "Content-Disposition": f"attachment; filename*=UTF-8''{zip_name}",
+        "Content-Type": "application/zip",
+    })
+    await resp.prepare(req)
+    try:
+        import io
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as zf:
+            for item in sorted(folder.rglob("*")):
+                if item.is_file(follow_symlinks=False):
+                    arcname = item.relative_to(folder)
+                    zf.write(item, arcname)
+        await resp.write(buf.getvalue())
+    except (ConnectionError, ConnectionResetError):
+        pass
+    return resp
+
+
 async def handle_login(req):
     if not _rate_ok(req.remote): return web.Response(status=429, text="Too many requests")
+    data = await req.post()
+    username = (data.get("username") or "").strip(); password = data.get("pass", "")
+    db = _load_users(); user = db["users"].get(username)
+    if not user or user.get("disabled") or not secrets.compare_digest(_pw_hash(password), user["pw_hash"]):
+        err = '<p class="error">Wrong credentials.</p>'
+        return web.Response(text=_tpl("login.html", error=err), content_type="text/html", status=401)
+    tok = _new_session(username, user["role"]); resp = web.HTTPFound("/")
+    _set_cookie(resp, tok); return resp
+
+
+async def handle_admin_user_update(req):
+    """Admin: change password, disable/enable, promote/demote a user."""
+    if not _is_admin(req): return web.json_response({"error": "forbidden"}, status=403)
+    username = req.match_info["username"]
+    if username == _who(req):
+        return web.json_response({"error": "cannot modify yourself this way"}, status=400)
+    try:
+        body = await req.json()
+    except Exception: return web.json_response({"error": "bad request"}, status=400)
+    db = _load_users()
+    if username not in db["users"]:
+        return web.json_response({"error": "user not found"}, status=404)
+    user = db["users"][username]
+    changed = False
+    if "password" in body:
+        pw = str(body["password"])
+        if len(pw) < 6: return web.json_response({"error": "password must be ≥ 6 chars"}, status=400)
+        user["pw_hash"] = _pw_hash(pw); changed = True
+    if "disabled" in body:
+        user["disabled"] = bool(body["disabled"]); changed = True
+    if "role" in body:
+        role = body["role"]
+        if role not in ("user", "admin"):
+            return web.json_response({"error": "invalid role"}, status=400)
+        if role == "user" and user.get("role") == "admin":
+            admin_count = sum(1 for d in db["users"].values() if d.get("role") == "admin")
+            if admin_count <= 1:
+                return web.json_response({"error": "cannot demote the last admin"}, status=400)
+        user["role"] = role; changed = True
+    if not changed:
+        return web.json_response({"error": "nothing to update"}, status=400)
+    db["users"][username] = user
+    _save_users(db)
+    # Kill sessions if user was disabled or password changed
+    if body.get("disabled") or "password" in body:
+        to_kill = [tok for tok, s in list(_sessions.items()) if s.get("user") == username]
+        for tok in to_kill: _sessions.pop(tok, None)
+    return web.json_response({"ok": True})
+
+
+async def handle_admin_session_reset(req):
+    """Admin: kill all sessions for a specific user (or all non-admin sessions)."""
+    if not _is_admin(req): return web.json_response({"error": "forbidden"}, status=403)
+    username = req.match_info.get("username", "")
+    if username:
+        to_kill = [tok for tok, s in list(_sessions.items()) if s.get("user") == username]
+    else:
+        to_kill = [tok for tok, s in list(_sessions.items()) if s.get("role") != "admin"]
+    for tok in to_kill: _sessions.pop(tok, None)
+    return web.json_response({"ok": True, "killed": len(to_kill)})
+
+
+
     data = await req.post()
     username = (data.get("username") or "").strip(); password = data.get("pass", "")
     db = _load_users(); user = db["users"].get(username)
@@ -348,7 +482,18 @@ async def handle_delete(req):
     if not _can_modify(req, fname):
         return web.json_response({"error": "forbidden — not your file"}, status=403)
     path = _safe(rel)
-    if path is None: raise web.HTTPNotFound()
+    if path is None:
+        # Maybe it's a directory — only admins can delete directories
+        if not _is_admin(req):
+            return web.json_response({"error": "forbidden — only admins can delete folders"}, status=403)
+        d = _safe_dir(rel)
+        if d is None or d == DOWNLOADS_DIR or not d.is_dir():
+            raise web.HTTPNotFound()
+        try:
+            shutil.rmtree(str(d))
+        except Exception as ex:
+            return web.json_response({"error": str(ex)}, status=500)
+        return web.json_response({"ok": True})
     try:
         path.unlink(); m = _load_meta(); m.pop(fname, None); _save_meta(m)
     except Exception as ex: return web.json_response({"error": str(ex)}, status=500)
@@ -367,26 +512,46 @@ async def handle_rename(req):
         return web.json_response({"error": "forbidden — not your file"}, status=403)
     if _is_blocked(new_name):
         return web.json_response({"error": "file type not allowed"}, status=400)
+    # Support both files and directories
     src = _safe(old_rel)
-    if src is None: raise web.HTTPNotFound()
-    dst = src.parent / new_name   # rename within same directory
+    is_dir = False
+    if src is None:
+        src_dir = _safe_dir(old_rel)
+        if src_dir is None or src_dir == DOWNLOADS_DIR or not src_dir.is_dir():
+            raise web.HTTPNotFound()
+        src = src_dir
+        is_dir = True
+    dst = src.parent / new_name
+    # Verify destination stays inside DOWNLOADS_DIR
+    try:
+        if not str(dst.resolve()).startswith(str(DOWNLOADS_DIR) + os.sep):
+            return web.json_response({"error": "invalid path"}, status=400)
+    except Exception:
+        return web.json_response({"error": "invalid path"}, status=400)
     if dst.exists(): return web.json_response({"error": "name already taken"}, status=409)
     try:
-        src.rename(dst); m = _load_meta()
-        if old_name in m: m[new_name] = m.pop(old_name); _save_meta(m)
+        src.rename(dst)
+        if not is_dir:
+            m = _load_meta()
+            if old_name in m: m[new_name] = m.pop(old_name); _save_meta(m)
     except Exception as ex: return web.json_response({"error": str(ex)}, status=500)
     return web.json_response({"ok": True, "name": new_name})
 
 async def handle_upload(req):
     if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
     username = _who(req)
+    # Allow uploading into a specific subfolder
+    folder_rel = req.rel_url.query.get("path", "").lstrip("/")
+    dest_dir = _safe_dir(folder_rel) if folder_rel else DOWNLOADS_DIR
+    if dest_dir is None or not dest_dir.is_dir():
+        return web.json_response({"error": "invalid upload path"}, status=400)
     try:
         reader = await req.multipart(); field = await reader.next()
         if field is None or field.name != "file": raise web.HTTPBadRequest()
         filename = _sanitize_filename(field.filename or "upload")
         if _is_blocked(filename):
             return web.json_response({"error": "executable file types are not allowed"}, status=400)
-        dest = DOWNLOADS_DIR / filename; tmp = dest.with_suffix(dest.suffix + ".part")
+        dest = dest_dir / filename; tmp = dest.with_suffix(dest.suffix + ".part")
         received = 0
         try:
             with open(tmp, "wb") as f:
@@ -421,7 +586,9 @@ async def handle_make_token(req):
     if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
     rel = req.match_info["tail"].lstrip("/")
     if _safe(rel) is None: raise web.HTTPNotFound()
-    return web.json_response({"url": f"/get/{make_dl_token(rel)}/{rel}"})
+    # URL-encode path segments so links work when copied (spaces → %20, etc.)
+    encoded_rel = "/".join(urllib.parse.quote(seg, safe="") for seg in rel.split("/"))
+    return web.json_response({"url": f"/get/{make_dl_token(rel)}/{encoded_rel}"})
 
 async def handle_torrent(req):
     if not _check(req) or not _is_admin(req):
@@ -625,7 +792,7 @@ async def handle_flag_set(req):
 async def handle_admin_users(req):
     if not _is_admin(req): return web.json_response({"error": "forbidden"}, status=403)
     db = _load_users()
-    return web.json_response({u: {"role": d["role"], "avatar": d.get("avatar")}
+    return web.json_response({u: {"role": d["role"], "avatar": d.get("avatar"), "disabled": d.get("disabled", False)}
                                for u, d in db["users"].items()})
 
 async def handle_admin_user_delete(req):
@@ -671,31 +838,35 @@ async def handle_static(req):
 def create_app():
     app = web.Application(client_max_size=MAX_UPLOAD_BYTES + 65536)
     r = app.router
-    r.add_get   ("/",                          handle_root)
-    r.add_post  ("/login",                     handle_login)
-    r.add_post  ("/register",                  handle_register)
-    r.add_post  ("/logout",                    handle_logout)
-    r.add_get   ("/session",                   handle_session)
-    r.add_get   ("/files",                     handle_files)
-    r.add_route ("DELETE", "/files/{tail:.*}", handle_delete)
-    r.add_post  ("/rename",                    handle_rename)
-    r.add_post  ("/upload",                    handle_upload)
-    r.add_post  ("/torrent",                   handle_torrent)
-    r.add_get   ("/torrent/progress",          handle_torrent_progress)
-    r.add_post  ("/torrent/{pid}/cancel",      handle_torrent_cancel)
-    r.add_post  ("/fetch",                     handle_fetch_url)
-    r.add_get   ("/fetch/progress",            handle_fetch_progress)
-    r.add_post  ("/fetch/{job_id}/cancel",     handle_fetch_cancel)
-    r.add_post  ("/fetch/{job_id}/retry",      handle_fetch_retry)
-    r.add_get   ("/flags",                     handle_flag_get)
-    r.add_post  ("/flags",                     handle_flag_set)
-    r.add_get   ("/token/{tail:.*}",           handle_make_token)
-    r.add_get   ("/get/{token}/{tail:.*}",     handle_token_download)
-    r.add_get   ("/dl/{tail:.*}",              handle_download)
-    r.add_get   ("/admin/users",               handle_admin_users)
-    r.add_delete("/admin/users/{username}",    handle_admin_user_delete)
-    r.add_post  ("/admin/avatar",              handle_avatar_upload)
-    r.add_get   ("/static/{name}",             handle_static)
+    r.add_get   ("/",                              handle_root)
+    r.add_post  ("/login",                         handle_login)
+    r.add_post  ("/register",                      handle_register)
+    r.add_post  ("/logout",                        handle_logout)
+    r.add_get   ("/session",                       handle_session)
+    r.add_get   ("/files",                         handle_files)
+    r.add_route ("DELETE", "/files/{tail:.*}",     handle_delete)
+    r.add_post  ("/rename",                        handle_rename)
+    r.add_post  ("/mkdir",                         handle_mkdir)
+    r.add_get   ("/zip",                           handle_zip_folder)
+    r.add_post  ("/upload",                        handle_upload)
+    r.add_post  ("/torrent",                       handle_torrent)
+    r.add_get   ("/torrent/progress",              handle_torrent_progress)
+    r.add_post  ("/torrent/{pid}/cancel",          handle_torrent_cancel)
+    r.add_post  ("/fetch",                         handle_fetch_url)
+    r.add_get   ("/fetch/progress",                handle_fetch_progress)
+    r.add_post  ("/fetch/{job_id}/cancel",         handle_fetch_cancel)
+    r.add_post  ("/fetch/{job_id}/retry",          handle_fetch_retry)
+    r.add_get   ("/flags",                         handle_flag_get)
+    r.add_post  ("/flags",                         handle_flag_set)
+    r.add_get   ("/token/{tail:.*}",               handle_make_token)
+    r.add_get   ("/get/{token}/{tail:.*}",         handle_token_download)
+    r.add_get   ("/dl/{tail:.*}",                  handle_download)
+    r.add_get   ("/admin/users",                   handle_admin_users)
+    r.add_delete("/admin/users/{username}",        handle_admin_user_delete)
+    r.add_patch ("/admin/users/{username}",        handle_admin_user_update)
+    r.add_post  ("/admin/users/{username}/reset",  handle_admin_session_reset)
+    r.add_post  ("/admin/avatar",                  handle_avatar_upload)
+    r.add_get   ("/static/{name}",                 handle_static)
     return app
 
 async def start_web():
