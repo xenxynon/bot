@@ -429,6 +429,12 @@ body {
 .job-btn-retry:hover  { border-color: var(--accent); color: var(--accent); }
 .job-btn-log    { background: transparent; border-color: var(--border); color: var(--muted); }
 .job-btn-log:hover    { border-color: var(--border-strong); color: var(--sub); }
+.job-btn-dismiss {
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 0 2px; flex-shrink: 0;
+  transition: color var(--t);
+}
+.job-btn-dismiss:hover { color: var(--red); }
 
 /* URL fetch */
 .fetch-input {
@@ -800,7 +806,6 @@ let _all = [], _dirs = [], _cat = null, _isAdmin = false, _canWrite = false;
 let _torrentEnabled = false, _username = null, _avatar = null;
 let _sort = { col: 'mtime', dir: -1 };
 let _path = '';
-let _renamingFile = null;
 let _progressInterval = null;
 
 // ── Category definitions ───────────────────────────────────────────────────────
@@ -1117,6 +1122,9 @@ function nextLoadMsg() { return LOAD_MSGS[_loadMsgIdx++ % LOAD_MSGS.length]; }
 // ── Load ───────────────────────────────────────────────────────────────────────
 async function load(path) {
   if (path !== undefined) _path = path;
+  // Sync URL bar
+  const qs = _path ? '?p=' + encodeURIComponent(_path) : location.pathname;
+  history.pushState({ path: _path }, '', _path ? '/?p=' + encodeURIComponent(_path) : '/');
   try {
     const url = '/files' + (_path ? '?path=' + encodeURIComponent(_path) : '');
     const [fr, fs] = await Promise.all([fetch(url), fetch('/session')]);
@@ -1132,6 +1140,13 @@ async function load(path) {
   } catch { return; }
   buildBreadcrumb(); buildCatTabs(); buildSortMenu(); render();
 }
+
+// Browser back/forward support
+window.addEventListener('popstate', e => {
+  const p = e.state?.path ?? new URLSearchParams(location.search).get('p') ?? '';
+  _path = p;
+  load(p);
+});
 
 function _updateUserBtn() {
   const btn = document.getElementById('user-btn');
@@ -1158,20 +1173,22 @@ function _applyPerms() {
 // ── Breadcrumb ────────────────────────────────────────────────────────────────
 function buildBreadcrumb() {
   const bc = document.getElementById('breadcrumb');
-  if (!_path) { bc.innerHTML = ''; return; }
-  const parts = _path.split('/').filter(Boolean);
+  bc.innerHTML = '';
   const el0 = document.createElement('button');
-  el0.className = 'bc-item'; el0.textContent = '~'; el0.dataset.path = '';
+  el0.className = 'bc-item'; el0.textContent = '~';
   el0.addEventListener('click', () => load(''));
-  bc.innerHTML = ''; bc.appendChild(el0);
+  bc.appendChild(el0);
+  if (!_path) return;
+  const parts = _path.split('/').filter(Boolean);
   parts.forEach((p, i) => {
     const sep = document.createElement('span'); sep.className = 'bc-sep'; sep.textContent = '/'; bc.appendChild(sep);
-    const subPath = parts.slice(0, i+1).join('/');
-    const btn = document.createElement(i === parts.length - 1 ? 'span' : 'button');
-    btn.className = 'bc-item' + (i === parts.length - 1 ? ' current' : '');
-    btn.textContent = p;
-    if (i < parts.length - 1) { btn.dataset.path = subPath; btn.addEventListener('click', () => load(subPath)); }
-    bc.appendChild(btn);
+    const subPath = parts.slice(0, i + 1).join('/');
+    if (i === parts.length - 1) {
+      const cur = document.createElement('span'); cur.className = 'bc-item current'; cur.textContent = p; bc.appendChild(cur);
+    } else {
+      const btn = document.createElement('button'); btn.className = 'bc-item'; btn.textContent = p;
+      btn.addEventListener('click', () => load(subPath)); bc.appendChild(btn);
+    }
   });
 }
 
@@ -1266,11 +1283,28 @@ function render() {
   const frag = document.createDocumentFragment();
 
   if (!q) {
+    // Parent directory (..) row
+    if (_path) {
+      const parentPath = _path.includes('/') ? _path.slice(0, _path.lastIndexOf('/')) : '';
+      const up = document.createElement('div');
+      up.className = 'frow dir-row';
+      up.innerHTML = `
+        <div class="fname-cell">
+          <div class="file-badge fb-dir" style="opacity:.5">${FOLDER_SVG}</div>
+          <div class="fname-info">
+            <div class="fname-main" style="color:var(--sub)">..</div>
+            <div class="fname-sub">parent folder</div>
+          </div>
+        </div>
+        <div class="fsize">—</div><div class="fdate">—</div><div class="fact"></div>`;
+      up.addEventListener('click', () => load(parentPath));
+      frag.appendChild(up);
+    }
+
     _dirs.forEach(d => {
       const subPath = _path ? _path + '/' + d.name : d.name;
       const row = document.createElement('div');
       row.className = 'frow dir-row';
-      row.dataset.path = subPath;
       row.innerHTML = `
         <div class="fname-cell">
           <div class="file-badge fb-dir">${FOLDER_SVG}</div>
@@ -1288,7 +1322,9 @@ function render() {
     });
   }
 
-  rows.forEach((f, i) => {
+  rows.forEach((f) => {
+    // f.rel is the full relative path from downloads root, e.g. "Shows/Better Call Saul/ep01.mkv"
+    const rel = f.rel || f.name;
     const [label, cls] = badgeForFile(f.name);
     const row = document.createElement('div');
     row.className = 'frow';
@@ -1315,16 +1351,15 @@ function render() {
         ${f.can_modify ? `<button class="act-btn danger act-del" title="Delete">${DEL_SVG}</button>` : ''}
       </div>`;
 
-    // Wire up buttons via data — no string injection
     const copyBtn   = row.querySelector('.act-copy');
     const dlBtn     = row.querySelector('.act-dl');
     const renameBtn = row.querySelector('.act-rename');
     const delBtn    = row.querySelector('.act-del');
 
-    copyBtn.addEventListener('click', e => { e.stopPropagation(); copyLink(f.name, copyBtn); });
-    dlBtn.addEventListener('click',   e => { e.stopPropagation(); dlFile(f.name, dlBtn); });
-    if (renameBtn) renameBtn.addEventListener('click', e => { e.stopPropagation(); openRename(f.name); });
-    if (delBtn)    delBtn.addEventListener('click',    e => { e.stopPropagation(); delFile(f.name, delBtn); });
+    copyBtn.addEventListener('click', e => { e.stopPropagation(); copyLink(rel, copyBtn); });
+    dlBtn.addEventListener('click',   e => { e.stopPropagation(); dlFile(rel, f.name, dlBtn); });
+    if (renameBtn) renameBtn.addEventListener('click', e => { e.stopPropagation(); openRename(rel, f.name); });
+    if (delBtn)    delBtn.addEventListener('click',    e => { e.stopPropagation(); delFile(rel, delBtn); });
 
     frag.appendChild(row);
   });
@@ -1346,9 +1381,9 @@ function closePanel() {
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-async function copyLink(name, btn) {
+async function copyLink(rel, btn) {
   try {
-    const r = await fetch('/token/' + encodeURIComponent(name));
+    const r = await fetch('/token/' + rel.split('/').map(encodeURIComponent).join('/'));
     if (!r.ok) { toast('failed to get link'); return; }
     const { url } = await r.json();
     await navigator.clipboard.writeText(location.origin + url);
@@ -1358,9 +1393,10 @@ async function copyLink(name, btn) {
   } catch { toast('clipboard unavailable'); }
 }
 
-function dlFile(name, btn) {
+function dlFile(rel, name, btn) {
   const a = document.createElement('a');
-  a.href = '/dl/' + encodeURIComponent(name); a.download = name;
+  a.href = '/dl/' + rel.split('/').map(encodeURIComponent).join('/');
+  a.download = name;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(() => {
     btn.classList.add('ok'); btn.innerHTML = CHECK_SVG;
@@ -1370,7 +1406,7 @@ function dlFile(name, btn) {
   unlock('first-dl', '⬇️', 'Downloader', 'downloaded your first file');
 }
 
-function delFile(name, btn) {
+function delFile(rel, btn) {
   if (!btn.classList.contains('armed')) {
     btn.classList.add('armed');
     toast('click again to confirm delete', 2500);
@@ -1378,7 +1414,8 @@ function delFile(name, btn) {
     return;
   }
   btn.classList.remove('armed');
-  fetch('/files/' + encodeURIComponent(name), { method: 'DELETE' })
+  const name = rel.split('/').pop();
+  fetch('/files/' + rel.split('/').map(encodeURIComponent).join('/'), { method: 'DELETE' })
     .then(async r => {
       if (r.ok) { toast('deleted: ' + (name.length > 40 ? name.slice(0,40) + '…' : name)); load(); }
       else { const d = await r.json().catch(()=>({})); toast(d.error || 'delete failed'); }
@@ -1387,20 +1424,22 @@ function delFile(name, btn) {
 }
 
 // ── Rename ────────────────────────────────────────────────────────────────────
-function openRename(name) {
-  _renamingFile = name;
+let _renamingRel = null;
+function openRename(rel, name) {
+  _renamingRel = rel;
   const input = document.getElementById('rename-input');
-  input.value = name;
+  input.value = name || rel.split('/').pop();
   document.getElementById('rename-overlay').style.display = '';
   setTimeout(() => { input.focus(); input.select(); }, 50);
 }
-function closeRename() { _renamingFile = null; document.getElementById('rename-overlay').style.display = 'none'; }
+function closeRename() { _renamingRel = null; document.getElementById('rename-overlay').style.display = 'none'; }
 async function submitRename() {
   const newName = document.getElementById('rename-input').value.trim();
-  if (!newName || !_renamingFile) return;
-  if (newName === _renamingFile) { closeRename(); return; }
+  if (!newName || !_renamingRel) return;
+  const oldName = _renamingRel.split('/').pop();
+  if (newName === oldName) { closeRename(); return; }
   try {
-    const r = await fetch('/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old: _renamingFile, new: newName }) });
+    const r = await fetch('/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old: _renamingRel, new: newName }) });
     const d = await r.json();
     if (r.ok) { toast('renamed to ' + newName); closeRename(); load(); }
     else toast(d.error || 'rename failed');
@@ -1562,12 +1601,26 @@ document.getElementById('fetch-url-input').addEventListener('keydown', e => {
 // ── Progress polling ──────────────────────────────────────────────────────────
 async function pollProgress() {
   if (!_canWrite) return;
+  const now = Date.now();
   try {
     const fr = await fetch('/fetch/progress').then(r => r.json()).catch(() => ({}));
+    // Auto-dismiss completed jobs after 30s
+    for (const [id, j] of Object.entries(fr)) {
+      if (j.status === 'done' && j.started) {
+        const age = now / 1000 - j.started;
+        if (age > 30) _dismissedJobs.add('fetch:' + id);
+      }
+    }
     renderFetchJobs(fr);
 
     if (_isAdmin) {
       const tr = await fetch('/torrent/progress').then(r => r.json()).catch(() => ({}));
+      for (const [id, j] of Object.entries(tr)) {
+        if (j.status === 'done' && j.started) {
+          const age = now / 1000 - j.started;
+          if (age > 30) _dismissedJobs.add('torrent:' + id);
+        }
+      }
       renderTorrentJobs(tr);
       const anyDone = [...Object.values(tr), ...Object.values(fr)].some(j => j.status === 'done');
       if (anyDone) load();
@@ -1588,24 +1641,28 @@ function renderJobItem(job, id, type) {
   const name   = job.name || (type === 'torrent' ? 'torrent' : 'file');
   const log    = job.log || '';
   const error  = job.error || '';
+  const isDone = ['done','failed','cancelled'].includes(status);
 
-  // Torrent uses string fields from aria2c output
-  const pctStr  = job.progress_str || (pct + '%');
   const spdStr  = job.speed_str  || (speed ? fspeed(speed) : '');
   const etaStr  = job.eta_str    || (eta >= 0 ? feta(eta) : '');
   const doneStr = job.done_str   || (done ? fsize(done) : '');
   const totStr  = job.total_str  || (total ? fsize(total) : '');
-
-  const sizeStr = (doneStr && totStr) ? doneStr + ' / ' + totStr : (doneStr || totStr || (done ? fsize(done) + (total ? ' / ' + fsize(total) : '') : ''));
+  const sizeStr = (doneStr && totStr) ? doneStr + ' / ' + totStr : (doneStr || totStr || '');
   const barClass = status === 'done' ? 'done' : status === 'failed' ? 'failed' : '';
   const logId = `log-${type}-${id}`;
-  const canCancel = !['done','failed','cancelled'].includes(status);
+  const canCancel = !isDone;
   const canRetry  = type === 'fetch' && ['failed','cancelled'].includes(status);
 
-  return `<div class="job-item">
+  const el = document.createElement('div');
+  el.className = 'job-item';
+  el.dataset.jid  = id;
+  el.dataset.done = isDone ? '1' : '0';
+
+  el.innerHTML = `
     <div class="job-head">
       <span class="job-name" title="${esc(name)}">${esc(name.length > 30 ? name.slice(0,28)+'…' : name)}</span>
       <span class="job-status js-${status}">${status}</span>
+      ${isDone ? `<button class="job-btn job-btn-dismiss" title="Dismiss">×</button>` : ''}
     </div>
     <div class="job-track"><div class="job-bar ${barClass}" style="width:${pct}%"></div></div>
     <div class="job-meta">
@@ -1616,33 +1673,52 @@ function renderJobItem(job, id, type) {
     </div>
     ${error ? `<div class="job-error">✕ ${esc(error.slice(0,120))}</div>` : ''}
     <div class="job-actions">
-      ${canCancel ? `<button class="job-btn job-btn-cancel" onclick="cancelJob('${type}','${id}')">cancel</button>` : ''}
-      ${canRetry  ? `<button class="job-btn job-btn-retry"  onclick="retryFetch('${id}')">retry</button>` : ''}
-      ${log ? `<button class="job-btn job-btn-log" onclick="toggleLog('${logId}')">log</button>` : ''}
+      ${canCancel ? `<button class="job-btn job-btn-cancel">cancel</button>` : ''}
+      ${canRetry  ? `<button class="job-btn job-btn-retry">retry</button>`  : ''}
+      ${log       ? `<button class="job-btn job-btn-log">log</button>`      : ''}
     </div>
-    ${log ? `<div class="job-log" id="${logId}">${esc(log.slice(-1500))}</div>` : ''}
-  </div>`;
+    ${log ? `<div class="job-log" id="${logId}">${esc(log.slice(-1500))}</div>` : ''}`;
+
+  el.querySelector('.job-btn-dismiss')?.addEventListener('click', () => { _dismissedJobs.add(type + ':' + id); el.remove(); });
+  el.querySelector('.job-btn-cancel')?.addEventListener('click', () => cancelJob(type, id));
+  el.querySelector('.job-btn-retry')?.addEventListener('click',  () => retryFetch(id));
+  el.querySelector('.job-btn-log')?.addEventListener('click', () => {
+    const lg = document.getElementById(logId);
+    if (lg) { lg.classList.toggle('open'); lg.scrollTop = lg.scrollHeight; }
+  });
+  return el;
 }
 
-function renderTorrentJobs(jobs) {
-  const el = document.getElementById('torrent-jobs-list');
-  const entries = Object.entries(jobs);
+function _renderJobList(jobs, elId, type) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const entries = Object.entries(jobs).filter(([id]) => !_dismissedJobs.has(type + ':' + id));
   if (!entries.length) { el.innerHTML = ''; return; }
-  el.innerHTML = entries.map(([pid, j]) => renderJobItem(j, pid, 'torrent')).join('');
+
+  const hasDone = entries.some(([, j]) => ['done','failed','cancelled'].includes(j.status));
+  const frag = document.createDocumentFragment();
+
+  if (hasDone) {
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'job-btn job-btn-cancel';
+    clearBtn.style.cssText = 'margin-bottom:4px;align-self:flex-end';
+    clearBtn.textContent = 'clear completed';
+    clearBtn.addEventListener('click', () => {
+      entries.forEach(([id, j]) => {
+        if (['done','failed','cancelled'].includes(j.status)) _dismissedJobs.add(type + ':' + id);
+      });
+      _renderJobList(jobs, elId, type);
+    });
+    frag.appendChild(clearBtn);
+  }
+
+  entries.forEach(([id, j]) => frag.appendChild(renderJobItem(j, id, type)));
+  el.innerHTML = '';
+  el.appendChild(frag);
 }
 
-function renderFetchJobs(jobs) {
-  const el = document.getElementById('fetch-jobs-list');
-  const entries = Object.entries(jobs);
-  if (!entries.length) { el.innerHTML = ''; return; }
-  el.innerHTML = entries.map(([jid, j]) => renderJobItem(j, jid, 'fetch')).join('');
-}
-
-function toggleLog(id) {
-  const el = document.getElementById(id); if (!el) return;
-  el.classList.toggle('open');
-  el.scrollTop = el.scrollHeight;
-}
+function renderTorrentJobs(jobs) { _renderJobList(jobs, 'torrent-jobs-list', 'torrent'); }
+function renderFetchJobs(jobs)   { _renderJobList(jobs, 'fetch-jobs-list',   'fetch');   }
 
 async function cancelJob(type, id) {
   const url = type === 'torrent' ? `/torrent/${id}/cancel` : `/fetch/${id}/cancel`;
@@ -1771,11 +1847,30 @@ async function doLogout() {
   location.href = '/';
 }
 
+// ── Job dismissal ─────────────────────────────────────────────────────────────
+// Client-side dismissed job IDs (server keeps them until restart)
+const _dismissedJobs = new Set();
+
+function dismissJob(type, id) {
+  _dismissedJobs.add(type + ':' + id);
+  // Re-render without polling
+  const el = document.getElementById('fetch-jobs-list');
+  if (el) el.querySelectorAll('[data-jid="' + id + '"]').forEach(n => n.remove());
+  const el2 = document.getElementById('torrent-jobs-list');
+  if (el2) el2.querySelectorAll('[data-jid="' + id + '"]').forEach(n => n.remove());
+}
+
+function clearCompleted() {
+  // Mark all done/failed/cancelled as dismissed
+  document.querySelectorAll('.job-item[data-done="1"]').forEach(el => el.remove());
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
+_path = new URLSearchParams(location.search).get('p') || '';
 load();
 setInterval(() => load(), 30000);
 
-// Check for saved achievements and show a greeting
+// Check for saved achievements
 setTimeout(() => {
   if (_unlocked.size >= 3) unlock('collector', '🎖️', 'Achievement Hunter', 'found 3+ secrets');
   if (_unlocked.size >= 7) unlock('completionist', '🏆', 'Completionist', 'you found them all... or did you?');

@@ -169,12 +169,18 @@ def _set_cookie(resp, tok):
                     httponly=True, samesite="Strict", secure=False)
 
 
-def _safe(name):
+def _safe(rel_path):
+    """Resolve a relative path (may contain subdirs) to an absolute path within DOWNLOADS_DIR.
+    Returns the Path if it exists as a file, else None."""
     try:
-        name = Path(name).name
-        p = (DOWNLOADS_DIR / name).resolve()
-        if p.parent == DOWNLOADS_DIR and p.is_file(): return p
-    except Exception: pass
+        # Strip leading slashes so Path() doesn't treat it as absolute
+        rel_path = rel_path.lstrip("/")
+        p = (DOWNLOADS_DIR / rel_path).resolve()
+        if str(p).startswith(str(DOWNLOADS_DIR) + os.sep) or p == DOWNLOADS_DIR:
+            if p.is_file():
+                return p
+    except Exception:
+        pass
     return None
 
 def _safe_dir(rel):
@@ -337,31 +343,33 @@ async def handle_files(req):
 
 async def handle_delete(req):
     if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
-    name = req.match_info["name"]
-    if not _can_modify(req, name):
+    rel = req.match_info["tail"].lstrip("/")
+    fname = Path(rel).name
+    if not _can_modify(req, fname):
         return web.json_response({"error": "forbidden — not your file"}, status=403)
-    path = _safe(name)
+    path = _safe(rel)
     if path is None: raise web.HTTPNotFound()
     try:
-        path.unlink(); m = _load_meta(); m.pop(name, None); _save_meta(m)
+        path.unlink(); m = _load_meta(); m.pop(fname, None); _save_meta(m)
     except Exception as ex: return web.json_response({"error": str(ex)}, status=500)
     return web.json_response({"ok": True})
 
 async def handle_rename(req):
     if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
     try:
-        body = await req.json()
-        old_name = Path(body.get("old", "")).name
-        new_name = _sanitize_filename(body.get("new", ""))
-        if not old_name or not new_name: raise ValueError
+        body     = await req.json()
+        old_rel  = body.get("old", "").lstrip("/")          # relative path from downloads root
+        new_name = _sanitize_filename(body.get("new", ""))  # just a filename, no slashes
+        if not old_rel or not new_name: raise ValueError
     except Exception: return web.json_response({"error": "bad request"}, status=400)
+    old_name = Path(old_rel).name
     if not _can_modify(req, old_name):
         return web.json_response({"error": "forbidden — not your file"}, status=403)
     if _is_blocked(new_name):
         return web.json_response({"error": "file type not allowed"}, status=400)
-    src = _safe(old_name)
+    src = _safe(old_rel)
     if src is None: raise web.HTTPNotFound()
-    dst = DOWNLOADS_DIR / new_name
+    dst = src.parent / new_name   # rename within same directory
     if dst.exists(): return web.json_response({"error": "name already taken"}, status=409)
     try:
         src.rename(dst); m = _load_meta()
@@ -396,22 +404,24 @@ async def handle_upload(req):
 
 async def handle_download(req):
     if not _check(req): raise web.HTTPFound("/")
-    path = _safe(req.match_info["name"])
+    rel = req.match_info["tail"].lstrip("/")
+    path = _safe(rel)
     if path is None: raise web.HTTPNotFound()
     return await _stream(req, path, path.name)
 
 async def handle_token_download(req):
-    tok, name = req.match_info["token"], req.match_info["name"]
-    if not verify_dl_token(tok, name): raise web.HTTPForbidden()
-    path = _safe(name)
+    tok = req.match_info["token"]
+    rel = req.match_info["tail"].lstrip("/")
+    if not verify_dl_token(tok, rel): raise web.HTTPForbidden()
+    path = _safe(rel)
     if path is None: raise web.HTTPNotFound()
-    return await _stream(req, path, name)
+    return await _stream(req, path, path.name)
 
 async def handle_make_token(req):
     if not _check(req): return web.json_response({"error": "unauthorized"}, status=401)
-    name = req.match_info["name"]
-    if _safe(name) is None: raise web.HTTPNotFound()
-    return web.json_response({"url": f"/get/{make_dl_token(name)}/{name}"})
+    rel = req.match_info["tail"].lstrip("/")
+    if _safe(rel) is None: raise web.HTTPNotFound()
+    return web.json_response({"url": f"/get/{make_dl_token(rel)}/{rel}"})
 
 async def handle_torrent(req):
     if not _check(req) or not _is_admin(req):
@@ -667,7 +677,7 @@ def create_app():
     r.add_post  ("/logout",                    handle_logout)
     r.add_get   ("/session",                   handle_session)
     r.add_get   ("/files",                     handle_files)
-    r.add_delete("/files/{name}",              handle_delete)
+    r.add_route ("DELETE", "/files/{tail:.*}", handle_delete)
     r.add_post  ("/rename",                    handle_rename)
     r.add_post  ("/upload",                    handle_upload)
     r.add_post  ("/torrent",                   handle_torrent)
@@ -679,9 +689,9 @@ def create_app():
     r.add_post  ("/fetch/{job_id}/retry",      handle_fetch_retry)
     r.add_get   ("/flags",                     handle_flag_get)
     r.add_post  ("/flags",                     handle_flag_set)
-    r.add_get   ("/token/{name}",              handle_make_token)
-    r.add_get   ("/get/{token}/{name}",        handle_token_download)
-    r.add_get   ("/dl/{name}",                 handle_download)
+    r.add_get   ("/token/{tail:.*}",           handle_make_token)
+    r.add_get   ("/get/{token}/{tail:.*}",     handle_token_download)
+    r.add_get   ("/dl/{tail:.*}",              handle_download)
     r.add_get   ("/admin/users",               handle_admin_users)
     r.add_delete("/admin/users/{username}",    handle_admin_user_delete)
     r.add_post  ("/admin/avatar",              handle_avatar_upload)
