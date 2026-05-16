@@ -169,6 +169,18 @@ def ftime(s):
     m, s = divmod(int(s), 60); h, m = divmod(m, 60)
     return f"{h}h {m}m {s}s" if h else f"{m}m {s}s" if m else f"{s}s"
 
+def _ficon(name: str) -> str:
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext in ("zip", "tar", "gz", "xz", "bz2", "zst", "7z", "rar"): return "📦"
+    if ext in ("mp4", "mkv", "avi", "mov", "webm"):                    return "🎬"
+    if ext in ("mp3", "flac", "ogg", "opus", "aac", "wav"):            return "🎵"
+    if ext in ("jpg", "jpeg", "png", "webp", "gif", "avif"):           return "🖼"
+    if ext in ("apk", "img", "iso", "bin"):                            return "💿"
+    if ext in ("pdf", "doc", "docx", "txt"):                           return "📄"
+    return "📁"
+
+
+
 def _ptext(label, cur, tot, elapsed):
     spd = cur / elapsed if elapsed else 0
     eta = (tot - cur) / spd if spd and tot > cur else -1
@@ -343,8 +355,14 @@ async def _upload(client, msg, path, status, do_tg, do_gf, t0):
         res.append(await _gofile(path, status))
     web = _web_link(name)
     if web: res.append(web)
-    parts = [f"✓ `{name}`", f"{fsize(size)}  ·  {ftime(time.time()-t0)}"]
-    if res: parts += [""] + res
+    icon = _ficon(name)
+    parts = [f"{icon} `{name}`", f"`{fsize(size)}`  ·  `{ftime(time.time()-t0)}`"]
+    if res:
+        fmt = []
+        for r in res:
+            if r.startswith("http"): fmt.append(f"⬇ {r}")
+            else: fmt.append(r)
+        parts += [""] + fmt
     await _edit(status, "\n".join(parts))
 
 
@@ -366,8 +384,9 @@ async def _dl(*, client, msg, status, uid, name, dest, t0,
         else:
             sz  = os.path.getsize(dest) if os.path.exists(dest) else 0
             web = _web_link(name)
-            parts = [f"✓ `{name}`", f"{fsize(sz)}  ·  {ftime(time.time()-t0)}"]
-            if web: parts += ["", web]
+            icon = _ficon(name)
+            parts = [f"{icon} `{name}`", f"`{fsize(sz)}`  ·  `{ftime(time.time()-t0)}`"]
+            if web: parts += ["", f"⬇ {web}"]
             await _edit(status, "\n".join(parts))
     except asyncio.CancelledError:
         await _edit(status, f"cancelled: `{name}`"); _rm(dest)
