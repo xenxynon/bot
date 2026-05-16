@@ -266,13 +266,13 @@ body {
   display: flex; align-items: center;
   padding: 0 14px; gap: 12px; z-index: 50;
 }
-.sb-stat { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
+.sb-stat { font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; flex-shrink: 0; }
 .sb-stat b { color: var(--sub); }
 .sb-egg {
   font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace;
-  max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   opacity: 0; transition: opacity .6s ease; cursor: pointer; user-select: none;
-  margin-left: auto;
+  margin-left: auto; text-align: right;
 }
 .sb-egg.visible { opacity: 1; }
 
@@ -599,7 +599,7 @@ body.hacker-mode #hacker-scan {
   .fname-sub { display: none; }
   .act-btn { width: 32px; height: 32px; }
   .statusbar { padding: 0 10px; gap: 8px; }
-  .sb-egg { max-width: 140px; font-size: 10px; }
+  .sb-egg { font-size: 10px; }
   .side-panel { width: 100%; }
 }
 @media (max-width: 380px) {
