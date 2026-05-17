@@ -55,12 +55,12 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
 
 /* ── FILE TABLE ───────────────────────────────────────────────── */
 .table-wrap{flex:1;overflow-y:auto}
-.thead{display:grid;grid-template-columns:1fr 80px 120px 44px;padding:0 12px;height:26px;align-items:center;border-bottom:1px solid var(--border-faint);position:sticky;top:0;background:var(--bg);z-index:5}
+.thead{display:grid;grid-template-columns:1fr 80px 120px 60px;padding:0 12px;height:26px;align-items:center;border-bottom:1px solid var(--border-faint);position:sticky;top:0;background:var(--bg);z-index:5}
 .th{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);font-weight:500;letter-spacing:.05em;text-transform:uppercase;background:none;border:none;cursor:pointer;text-align:left;padding:0;transition:color .12s}
 .th:hover{color:var(--sub)}
 .th-r{text-align:right;padding-right:4px}
 .th-c{text-align:center}
-.frow{display:grid;grid-template-columns:1fr 80px 120px 44px;padding:0 12px;min-height:42px;align-items:center;border-bottom:1px solid var(--border-faint);transition:background .1s;cursor:pointer}
+.frow{display:grid;grid-template-columns:1fr 80px 120px 60px;padding:0 12px;min-height:42px;align-items:center;border-bottom:1px solid var(--border-faint);transition:background .1s;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .frow:hover{background:var(--surface)}
 /* NOTE: no .frow.selected — 3-dot click no longer selects row */
 .dir-row:hover .fname-main{color:var(--accent)}
@@ -80,7 +80,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
 .owner-tag{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-left:4px;opacity:.7}
 .fsize{text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sub);padding-right:4px}
 .fdate{font-size:10px;color:var(--sub);padding-left:8px;font-family:'JetBrains Mono',monospace}
-.fact{display:flex;align-items:center;justify-content:flex-end}
+.fact{display:flex;align-items:center;justify-content:flex-end;gap:2px}
 .more-btn{width:26px;height:26px;border-radius:3px;background:transparent;border:1px solid transparent;color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;font-size:14px;line-height:1;font-family:'JetBrains Mono',monospace}
 .frow:hover .more-btn,.more-btn:focus{border-color:var(--border);color:var(--text);background:var(--surface-2)}
 .more-btn:active,.more-btn.open{background:var(--surface-2);border-color:var(--border-strong);color:var(--text)}
@@ -237,6 +237,60 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
 .fp-dest-info{font-size:10px;color:var(--sub);font-family:'JetBrains Mono',monospace;padding:5px 8px;background:var(--surface-2);border-radius:3px;border:1px solid var(--border)}
 .fp-dest-label{color:var(--muted)}
 
+/* ── DOWNLOAD BTN (row-level primary action) ─────────────────────────── */
+.dl-row-btn{width:26px;height:26px;border-radius:3px;background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;opacity:0}
+.frow:hover .dl-row-btn{opacity:1;border-color:var(--border);color:var(--sub)}
+.dl-row-btn:hover{background:var(--surface-2);color:var(--text)!important;border-color:var(--border-strong)!important}
+.dl-row-btn:active{transform:scale(.92)}
+
+/* ── IMPROVED PREVIEW ────────────────────────────────────────────────── */
+.preview-unsupported{padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;min-width:260px}
+.preview-file-badge{width:64px;height:64px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;margin-bottom:4px}
+.preview-file-name{font-size:13px;font-weight:600;color:var(--text);font-family:'JetBrains Mono',monospace;word-break:break-all;max-width:340px}
+.preview-file-meta{font-size:11px;color:var(--sub);font-family:'JetBrains Mono',monospace;display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.preview-file-meta span{display:flex;align-items:center;gap:4px}
+.preview-file-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.preview-file-actions .btn{height:32px;padding:0 16px;font-size:12px}
+
+/* ── CUSTOM AUDIO PLAYER ─────────────────────────────────────────────── */
+.aup-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;padding:32px 24px;width:min(400px,85vw)}
+.aup-disc{width:88px;height:88px;border-radius:50%;background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:32px;flex-shrink:0;transition:transform .4s ease}
+.aup-disc.spinning{animation:spin 3s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.aup-name{font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--text);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.aup-timeline{width:100%;display:flex;flex-direction:column;gap:4px}
+.aup-seek{width:100%;height:3px;-webkit-appearance:none;appearance:none;background:var(--surface-3);border-radius:2px;outline:none;cursor:pointer}
+.aup-seek::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer;transition:transform .1s}
+.aup-seek::-webkit-slider-thumb:hover{transform:scale(1.3)}
+.aup-seek::-moz-range-thumb{width:12px;height:12px;border-radius:50%;background:var(--accent);border:none;cursor:pointer}
+.aup-times{display:flex;justify-content:space-between;font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted)}
+.aup-controls{display:flex;align-items:center;gap:12px}
+.aup-play{width:40px;height:40px;border-radius:50%;background:var(--accent);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:opacity .12s,transform .1s;flex-shrink:0}
+.aup-play:hover{opacity:.85}
+.aup-play:active{transform:scale(.92)}
+.aup-vol-wrap{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.aup-vol{width:70px;height:3px;-webkit-appearance:none;appearance:none;background:var(--surface-3);border-radius:2px;outline:none;cursor:pointer}
+.aup-vol::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--sub);cursor:pointer}
+
+/* ── ACCOUNT MODAL REDESIGN ──────────────────────────────────────────── */
+.acct-panel .panel{width:min(300px,100%);padding:0;overflow:hidden}
+.acct-header{position:relative;padding:28px 20px 20px;text-align:center;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.acct-av{width:62px;height:62px;border-radius:50%;margin:0 auto 11px;border:2px solid var(--border-strong);overflow:hidden;background:var(--surface-3);display:flex;align-items:center;justify-content:center}
+.acct-av img{width:100%;height:100%;object-fit:cover;display:block}
+.acct-uname{font-size:14px;font-weight:600;color:var(--text);margin-bottom:5px;font-family:'DM Sans',sans-serif}
+.acct-role{display:inline-block;font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:700;padding:2px 7px;border-radius:2px;text-transform:uppercase;letter-spacing:.07em}
+.acct-role-admin{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.acct-role-user{background:var(--surface-3);color:var(--sub)}
+.acct-close{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:3px;background:none;border:1px solid transparent;color:var(--sub);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .12s;line-height:1}
+.acct-close:hover{border-color:var(--border);color:var(--text);background:var(--surface-3)}
+.acct-section{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:7px}
+.acct-sec-label{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:1px}
+.acct-avatar-upload-btn{height:28px;padding:0 10px;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--sub);font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .12s}
+.acct-avatar-upload-btn:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface-2)}
+.acct-footer{padding:12px 14px}
+.acct-logout-btn{width:100%;height:32px;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--red);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:background .12s,border-color .12s;display:flex;align-items:center;justify-content:center;gap:6px}
+.acct-logout-btn:hover{background:color-mix(in srgb,var(--red) 8%,transparent);border-color:var(--red)}
+
 /* mobile */
 @media(max-width:600px){
   .bc{display:none}
@@ -244,11 +298,13 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
   .search-wrap{max-width:none}
   .toolbar{padding:0 10px}
   .thead{display:none}
-  .frow{grid-template-columns:1fr auto!important;align-items:start;min-height:auto;padding:10px}
-  .fname-main{white-space:normal;word-break:break-word}
+  .frow{grid-template-columns:1fr auto!important;align-items:center;min-height:auto;padding:10px;-webkit-tap-highlight-color:transparent}
+  .fname-main{overflow-wrap:break-word;word-break:break-word;white-space:normal;hyphens:auto}
+  .fname-info{flex:1;min-width:0}
   .fsize,.fdate{display:none}
   .fname-meta{display:block!important}
   .fname-sub{display:none}
+  .dl-row-btn{opacity:1;border-color:var(--border);color:var(--sub)}
   .statusbar{padding:0 10px;gap:7px}
   .side-panel{width:100%}
   .preview-box{max-width:100vw;max-height:100vh;border-radius:0}
@@ -280,7 +336,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
   <div class="cat-tabs" id="cattabs"></div>
   <button class="tb-btn" id="mkdir-btn" onclick="openMkdirModal()" style="display:none">
     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-    mkdir
+    + New Folder
   </button>
   <div class="toolbar-sep" id="mkdir-sep" style="display:none"></div>
   <div class="sort-wrap">
@@ -474,23 +530,34 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(-
 <div id="acct-overlay" style="display:none" class="acct-panel">
   <div class="overlay" onclick="if(event.target===this)closeModal('acct')">
     <div class="panel" onclick="event.stopPropagation()">
-      <div class="panel-head"><span class="panel-title" id="acct-title">account</span><button class="panel-close" onclick="closeModal('acct')">×</button></div>
-      <div class="panel-body">
-        <div style="font-size:11px;color:var(--sub);font-family:'JetBrains Mono',monospace" id="acct-info"></div>
-        <div id="acct-avatar-section" style="display:none">
-          <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
-          <button class="btn btn-ghost" style="width:100%" onclick="document.getElementById('avatar-input').click()">Upload avatar</button>
+      <div class="acct-header">
+        <div class="acct-av" id="acct-av-wrap">
+          <img id="acct-av-img" src="" alt="avatar" style="display:none">
+          <span id="acct-av-initials" style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--sub)"></span>
         </div>
-        <div id="acct-switch-section" style="display:none">
-          <div style="font-size:10px;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-bottom:5px">Admin password to switch:</div>
-          <input class="panel-input" id="acct-pw" type="password" placeholder="admin password" autocomplete="off" style="margin-bottom:5px">
-          <div class="panel-error" id="acct-error" style="margin-bottom:3px">wrong password.</div>
-          <div class="panel-actions">
-            <button class="btn btn-primary" style="flex:1" onclick="submitSuSwitch()">Switch to admin</button>
-            <button class="btn btn-ghost" onclick="closeModal('acct')">Cancel</button>
-          </div>
-        </div>
-        <button class="btn btn-ghost" style="width:100%;color:var(--red);border-color:var(--border);margin-top:3px" onclick="doLogout()">Sign out</button>
+        <div class="acct-uname" id="acct-info"></div>
+        <div id="acct-role-badge" class="acct-role"></div>
+        <button class="acct-close" onclick="closeModal('acct')">×</button>
+      </div>
+      <div id="acct-avatar-section" style="display:none" class="acct-section">
+        <div class="acct-sec-label">Avatar</div>
+        <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
+        <button class="acct-avatar-upload-btn" onclick="document.getElementById('avatar-input').click()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload new avatar
+        </button>
+      </div>
+      <div id="acct-switch-section" style="display:none" class="acct-section">
+        <div class="acct-sec-label">Switch to admin</div>
+        <input class="panel-input" id="acct-pw" type="password" placeholder="Admin password" autocomplete="off">
+        <div class="panel-error" id="acct-error" style="display:none">Wrong password.</div>
+        <button class="btn btn-primary" style="justify-content:center" onclick="submitSuSwitch()">Switch to admin</button>
+      </div>
+      <div class="acct-footer">
+        <button class="acct-logout-btn" onclick="doLogout()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign out
+        </button>
       </div>
     </div>
   </div>
@@ -610,14 +677,13 @@ function fileCtxItems(f){
   const isPreviewable=['image','video','audio','doc'].includes(catFor(f.name));
   return[
     isPreviewable&&{label:'Preview',icon:EYE_SVG,fn:()=>openPreview(rel,f.name)},
-    {label:'Download',icon:DL_SVG,fn:()=>dlFile(rel,f.name)},
     {label:'Copy link',icon:COPY_SVG,fn:()=>copyLink(rel)},
+    {label:'Share link',icon:SHARE_SVG,fn:()=>openShareModal(rel)},
     '---',
     f.can_modify&&{label:'Rename',icon:EDIT_SVG,fn:()=>openRenameModal(rel,f.name)},
     f.can_modify&&{label:'Move',icon:MOVE_SVG,fn:()=>openMoveModal(rel,f.name,false)},
     f.can_modify&&{label:'Copy to…',icon:COPY_SVG,fn:()=>openMoveModal(rel,f.name,true)},
     isText&&f.can_modify&&{label:'Edit',icon:PEN_SVG,fn:()=>openEditor(rel,f.name)},
-    {label:'Share link',icon:SHARE_SVG,fn:()=>openShareModal(rel)},
     '---',
     f.can_modify&&{label:'Delete',icon:DEL_SVG,danger:true,fn:()=>confirmDelete(rel,f.name,null)},
   ].filter(Boolean);
@@ -634,9 +700,9 @@ function dirCtxItems(d){
 }
 
 // ── Preview ───────────────────────────────────────────────────────────────────
-let _curPreviewRel=null;
+let _curPreviewRel=null,_curPreviewName=null;
 function openPreview(rel,name){
-  _curPreviewRel=rel;
+  _curPreviewRel=rel; _curPreviewName=name;
   document.getElementById('preview-name').textContent=name;
   const body=document.getElementById('preview-body');
   body.innerHTML='<div style="padding:30px;color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:11px">loading…</div>';
@@ -646,16 +712,12 @@ function openPreview(rel,name){
   if(cat==='image'){
     body.innerHTML=`<img src="${url}" alt="${esc(name)}" style="max-height:80vh;object-fit:contain">`;
   } else if(cat==='video'){
-    // explicit preload + proper controls for seek to work
     const vid=document.createElement('video');
     vid.src=url; vid.controls=true; vid.preload='metadata';
-    vid.style.cssText='max-width:85vw;max-height:80vh;display:block';
+    vid.style.cssText='max-width:85vw;max-height:80vh;display:block;border-radius:3px';
     body.innerHTML=''; body.appendChild(vid);
   } else if(cat==='audio'){
-    const aud=document.createElement('audio');
-    aud.src=url; aud.controls=true; aud.preload='metadata';
-    aud.style.cssText='width:340px;max-width:85vw;display:block;margin:32px auto';
-    body.innerHTML=''; body.appendChild(aud);
+    _buildAudioPlayer(body,url,name);
   } else if(gext(name)==='pdf'){
     body.innerHTML=`<iframe src="${url}" title="${esc(name)}"></iframe>`;
   } else if(EDITABLE_EXTS.has(gext(name))){
@@ -664,15 +726,85 @@ function openPreview(rel,name){
         body.innerHTML=`<pre>${esc(d.content||'(empty)')}</pre>`;
       }).catch(()=>{body.innerHTML=`<div class="preview-unsupported">Could not load file content.</div>`;});
   } else {
-    body.innerHTML=`<div class="preview-unsupported">No preview for this file type.<br><br><button class="btn btn-primary" onclick="dlFile('${rel}','${name}')">Download</button></div>`;
+    _buildUnsupportedPanel(body,rel,name);
   }
 }
-function closePreview(){
-  document.getElementById('preview-overlay').classList.remove('open');
-  document.getElementById('preview-body').innerHTML='';
-  _curPreviewRel=null;
+function _buildAudioPlayer(body,url,name){
+  const wrap=document.createElement('div');
+  wrap.className='aup-wrap';
+  wrap.innerHTML=`
+    <div class="aup-disc" id="aup-disc">♪</div>
+    <div class="aup-name">${esc(name)}</div>
+    <div class="aup-timeline">
+      <input type="range" class="aup-seek" id="aup-seek" value="0" min="0" max="100" step="0.1">
+      <div class="aup-times"><span id="aup-cur">0:00</span><span id="aup-dur">—</span></div>
+    </div>
+    <div class="aup-controls">
+      <button class="aup-play" id="aup-play" title="Play / Pause">▶</button>
+      <div class="aup-vol-wrap">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <input type="range" class="aup-vol" id="aup-vol" value="1" min="0" max="1" step="0.01">
+      </div>
+    </div>`;
+  body.innerHTML=''; body.appendChild(wrap);
+  const aud=new Audio(url);
+  const fmt=s=>{if(isNaN(s)||!isFinite(s))return'—';const m=Math.floor(s/60);return m+':'+(String(Math.floor(s%60)).padStart(2,'0'))};
+  aud.addEventListener('loadedmetadata',()=>{const d=document.getElementById('aup-dur');if(d)d.textContent=fmt(aud.duration)});
+  aud.addEventListener('timeupdate',()=>{
+    const s=document.getElementById('aup-seek');if(!s||s._drag)return;
+    s.value=aud.duration?(aud.currentTime/aud.duration)*100:0;
+    const c=document.getElementById('aup-cur');if(c)c.textContent=fmt(aud.currentTime);
+  });
+  aud.addEventListener('ended',()=>{const b=document.getElementById('aup-play');if(b)b.textContent='▶';const d=document.getElementById('aup-disc');if(d)d.classList.remove('spinning')});
+  document.getElementById('aup-play').addEventListener('click',()=>{
+    const b=document.getElementById('aup-play'),disc=document.getElementById('aup-disc');
+    if(aud.paused){aud.play();b.textContent='⏸';disc.classList.add('spinning')}
+    else{aud.pause();b.textContent='▶';disc.classList.remove('spinning')}
+  });
+  const seekEl=document.getElementById('aup-seek');
+  const applySeek=()=>{if(aud.duration)aud.currentTime=(seekEl.value/100)*aud.duration};
+  seekEl.addEventListener('mousedown',()=>{seekEl._drag=true});
+  seekEl.addEventListener('mouseup',()=>{seekEl._drag=false;applySeek()});
+  seekEl.addEventListener('touchstart',()=>{seekEl._drag=true},{passive:true});
+  seekEl.addEventListener('touchend',()=>{seekEl._drag=false;applySeek()});
+  document.getElementById('aup-vol').addEventListener('input',e=>{aud.volume=+e.target.value});
+  wrap._aud=aud;
 }
-function dlCurrent(){if(_curPreviewRel){const n=_curPreviewRel.split('/').pop();dlFile(_curPreviewRel,n)}}
+const FILE_TYPE_DESC={
+  apk:'Android App Package',zip:'ZIP Archive',tar:'TAR Archive',gz:'GZip Archive',
+  '7z':'7-Zip Archive',rar:'RAR Archive',xz:'XZ Archive',zst:'Zstandard Archive',
+  bz2:'BZip2 Archive',lz4:'LZ4 Archive',br:'Brotli Archive',
+  exe:'Windows Executable',dmg:'macOS Disk Image',iso:'Disk Image',
+  db:'Database',sqlite:'SQLite Database',bin:'Binary File',dat:'Data File',
+  jar:'Java Archive',deb:'Debian Package',rpm:'RPM Package',
+  torrent:'BitTorrent Metainfo',
+};
+function _buildUnsupportedPanel(body,rel,name){
+  const ext=gext(name);
+  const[lbl,cls]=badge(name);
+  const typeDesc=FILE_TYPE_DESC[ext]||(ext?ext.toUpperCase()+' File':'Unknown File');
+  const panel=document.createElement('div');
+  panel.className='preview-unsupported';
+  panel.innerHTML=`
+    <div class="preview-file-badge ${cls}">${lbl}</div>
+    <div class="preview-file-name">${esc(name)}</div>
+    <div class="preview-file-meta"><span>${esc(typeDesc)}</span></div>
+    <div class="preview-file-actions">
+      <a class="btn btn-primary" href="/preview/${rel.split('/').map(encodeURIComponent).join('/')}" download="${esc(name)}" onclick="event.stopPropagation()">${DL_SVG} Download</a>
+      <button class="btn btn-ghost" onclick="copyCurrent()">${COPY_SVG} Copy link</button>
+    </div>`;
+  body.innerHTML=''; body.appendChild(panel);
+}
+function closePreview(){
+  // Stop any playing audio
+  const body=document.getElementById('preview-body');
+  const aupWrap=body&&body.querySelector('.aup-wrap');
+  if(aupWrap&&aupWrap._aud){try{aupWrap._aud.pause();aupWrap._aud.src=''}catch(e){}}
+  document.getElementById('preview-overlay').classList.remove('open');
+  body.innerHTML='';
+  _curPreviewRel=null; _curPreviewName=null;
+}
+function dlCurrent(){if(_curPreviewRel){const n=_curPreviewName||_curPreviewRel.split('/').pop();dlFile(_curPreviewRel,n)}}
 async function copyCurrent(){if(_curPreviewRel)await copyLink(_curPreviewRel)}
 document.getElementById('preview-overlay').addEventListener('keydown',e=>{if(e.key==='Escape')closePreview()});
 
@@ -698,9 +830,21 @@ window.addEventListener('popstate',e=>{const p=e.state?.path??new URLSearchParam
 
 function _updateUserBtn(){
   const btn=document.getElementById('user-btn');
-  if(_avatar)btn.innerHTML=`<img src="${_avatar}" alt="avatar">`;
-  else btn.textContent=(_username||'?').slice(0,2).toUpperCase();
+  if(_avatar){btn.innerHTML=`<img src="${_avatar}" alt="avatar">`;btn.style.background='transparent';}
+  else{
+    const av=genAvatar(_username||'?');
+    btn.innerHTML=`<img src="${av}" alt="avatar">`;
+    btn.style.background='transparent';
+  }
   btn.title=_username||'Account';
+}
+function genAvatar(name){
+  const h=name.split('').reduce((a,c)=>(a*37+c.charCodeAt(0))&0xffffff,0);
+  const hue=h%360; const sat=45+((h>>8)%25); const lit=32+((h>>16)%14);
+  const initials=name.slice(0,2).toUpperCase();
+  const bg=`hsl(${hue},${sat}%,${lit}%)`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="16" fill="${bg}"/><text x="16" y="21.5" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="rgba(255,255,255,0.92)" text-anchor="middle">${initials}</text></svg>`;
+  return 'data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg)));
 }
 function _applyPerms(){
   const hasAct=_canWrite||_torrentEnabled||_isAdmin;
@@ -731,7 +875,8 @@ function buildBreadcrumb(){
 // ── Category tabs ─────────────────────────────────────────────────────────────
 function buildCatTabs(){
   const counts={};_all.forEach(f=>{const c=catFor(f.name);counts[c]=(counts[c]||0)+1});
-  let html=`<button class="ctab${_cat===null?' on':''}" onclick="setCat(null)">all <span class="n">${_all.length}</span></button>`;
+  let html=`<button class="ctab${_cat===null?' on':''}" onclick="setCat(null)">all <span class="n">${_all.length+_dirs.length}</span></button>`;
+  if(_dirs.length)html+=`<button class="ctab${_cat==='folders'?' on':''}" onclick="setCat('folders')">folders <span class="n">${_dirs.length}</span></button>`;
   for(const cat of CATS){if(!counts[cat.id])continue;html+=`<button class="ctab${_cat===cat.id?' on':''}" onclick="setCat('${cat.id}')">${cat.label} <span class="n">${counts[cat.id]}</span></button>`}
   if(counts.other)html+=`<button class="ctab${_cat==='other'?' on':''}" onclick="setCat('other')">other <span class="n">${counts.other}</span></button>`;
   document.getElementById('cattabs').innerHTML=html;
@@ -754,34 +899,39 @@ function toggleSortMenu(){
 function setSort(col,e){if(e)e.stopPropagation();_sort={col,dir:_sort.col===col?-_sort.dir:-1};buildSortMenu();render()}
 
 // ── Render ────────────────────────────────────────────────────────────────────
+const DL_ROW_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 function render(){
   const q=document.getElementById('q').value.toLowerCase().trim();
-  let rows=_all.filter(f=>(_cat?catFor(f.name)===_cat:true)&&(!q||f.name.toLowerCase().includes(q)));
+  const foldersOnly=_cat==='folders';
+  let rows=foldersOnly?[]:_all.filter(f=>(_cat&&_cat!=='folders'?catFor(f.name)===_cat:true)&&(!q||f.name.toLowerCase().includes(q)));
   const{col,dir}=_sort;
   rows.sort((a,b)=>{let av=col==='ext'?gext(a.name):a[col],bv=col==='ext'?gext(b.name):b[col];if(typeof av==='string'){av=av.toLowerCase();bv=bv.toLowerCase()}return av<bv?-dir:av>bv?dir:0});
   const total=_all.reduce((s,f)=>s+f.size,0);
   document.getElementById('sb-count').textContent=_all.length;
   document.getElementById('sb-size').textContent=fsize(total);
   const sw=document.getElementById('sb-shown-wrap');
-  if(rows.length<_all.length){sw.style.display='';document.getElementById('sb-shown').textContent=rows.length}else sw.style.display='none';
+  const shownCount=foldersOnly?_dirs.length:rows.length;
+  if(shownCount<(_all.length+_dirs.length)&&(q||_cat)){sw.style.display='';document.getElementById('sb-shown').textContent=shownCount}else sw.style.display='none';
   const wrap=document.getElementById('rows');
-  if(!_dirs.length&&!rows.length){
+  const showDirs=!q&&(foldersOnly||_cat===null);
+  if(!showDirs&&!rows.length){
     wrap.innerHTML=`<div class="empty"><svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="M8 12h8M12 8v8"/></svg><div class="empty-msg">${q?'no results for "'+esc(q)+'"':'no files yet'}</div></div>`;
     return;
   }
   const frag=document.createDocumentFragment();
-  if(!q){
+  if(!q&&!foldersOnly){
     if(_path){
       const parentPath=_path.includes('/')?_path.slice(0,_path.lastIndexOf('/')):''
       const up=mkRow(`<div class="fname-cell"><div class="file-badge fb-dir" style="opacity:.45">${FOLDER_SVG}</div><div class="fname-info"><div class="fname-main" style="color:var(--sub)">..</div><div class="fname-sub">parent folder</div></div></div><div class="fsize">—</div><div class="fdate">—</div><div class="fact"></div>`,'dir-row');
       up.addEventListener('click',()=>load(parentPath));frag.appendChild(up);
     }
+  }
+  if(!q&&(foldersOnly||_cat===null)){
     _dirs.forEach(d=>{
       const sub=_path?_path+'/'+d.name:d.name;
       const row=mkRow(`<div class="fname-cell"><div class="file-badge fb-dir">${FOLDER_SVG}</div><div class="fname-info"><div class="fname-main">${esc(d.name)}</div><div class="fname-sub">directory</div><div class="fname-meta">${fdate(d.mtime)}</div></div></div><div class="fsize">—</div><div class="fdate">${fdate(d.mtime)}</div><div class="fact"><button class="more-btn" title="Options">⋯</button></div>`,'dir-row');
       row.addEventListener('click',e=>{if(e.target.closest('.more-btn'))return;load(sub)});
-      // FIX: stopPropagation so clicking more-btn doesn't highlight/select the row
-      row.querySelector('.more-btn').addEventListener('click',e=>{e.stopPropagation();showCtx(e,dirCtxItems(d))});
+      row.querySelector('.more-btn').addEventListener('click',e=>{e.stopPropagation();e.preventDefault();showCtx(e,dirCtxItems(d))});
       row.addEventListener('contextmenu',e=>showCtx(e,dirCtxItems(d)));
       frag.appendChild(row);
     });
@@ -789,10 +939,9 @@ function render(){
   rows.forEach(f=>{
     const rel=f.rel||f.name; const[lbl,cls]=badge(f.name);
     const ownerEl=f.owner&&_isAdmin?`<span class="owner-tag">${esc(f.owner)}</span>`:'';
-    const row=mkRow(`<div class="fname-cell"><div class="file-badge ${cls}">${lbl}</div><div class="fname-info"><div class="fname-main" title="${esc(f.name)}">${esc(f.name)}</div><div class="fname-sub">.${esc(gext(f.name)||'—')}${ownerEl}</div><div class="fname-meta">${fsize(f.size)} · ${fdate(f.mtime)}</div></div></div><div class="fsize">${fsize(f.size)}</div><div class="fdate">${fdate(f.mtime)}</div><div class="fact"><button class="more-btn" title="Options">⋯</button></div>`);
-    row.addEventListener('click',e=>{if(e.target.closest('.more-btn'))return;openPreview(rel,f.name)});
-    // FIX: stopPropagation prevents row hover/selection highlight when clicking 3-dot
-    row.querySelector('.more-btn').addEventListener('click',e=>{e.stopPropagation();showCtx(e,fileCtxItems(f))});
+    const row=mkRow(`<div class="fname-cell"><div class="file-badge ${cls}">${lbl}</div><div class="fname-info"><div class="fname-main" title="${esc(f.name)}">${esc(f.name)}</div><div class="fname-sub">.${esc(gext(f.name)||'—')}${ownerEl}</div><div class="fname-meta">${fsize(f.size)} · ${fdate(f.mtime)}</div></div></div><div class="fsize">${fsize(f.size)}</div><div class="fdate">${fdate(f.mtime)}</div><div class="fact"><a class="dl-row-btn" href="/preview/${rel.split('/').map(encodeURIComponent).join('/')}" download="${esc(f.name)}" title="Download" onclick="event.stopPropagation()">${DL_ROW_SVG}</a><button class="more-btn" title="Options">⋯</button></div>`);
+    row.addEventListener('click',e=>{if(e.target.closest('.more-btn')||e.target.closest('.dl-row-btn'))return;openPreview(rel,f.name)});
+    row.querySelector('.more-btn').addEventListener('click',e=>{e.stopPropagation();e.preventDefault();showCtx(e,fileCtxItems(f))});
     row.addEventListener('contextmenu',e=>showCtx(e,fileCtxItems(f)));
     frag.appendChild(row);
   });
@@ -1147,8 +1296,18 @@ async function deleteUser(name){if(!confirm(`Remove user "${name}"?`))return;con
 
 // ── Account modal ─────────────────────────────────────────────────────────────
 function openAcctModal(){
-  document.getElementById('acct-title').textContent=_isAdmin?'admin account':'account';
-  document.getElementById('acct-info').textContent='signed in as: '+(_username||'unknown');
+  const username=_username||'unknown';
+  // Avatar
+  const avImg=document.getElementById('acct-av-img');
+  const avInit=document.getElementById('acct-av-initials');
+  const avSrc=_avatar||genAvatar(username);
+  avImg.src=avSrc; avImg.style.display='block'; avInit.style.display='none';
+  // Username & role
+  document.getElementById('acct-info').textContent=username;
+  const roleBadge=document.getElementById('acct-role-badge');
+  if(_isAdmin){roleBadge.textContent='admin';roleBadge.className='acct-role acct-role-admin';}
+  else{roleBadge.textContent='user';roleBadge.className='acct-role acct-role-user';}
+  // Sections
   document.getElementById('acct-avatar-section').style.display=_isAdmin?'':'none';
   document.getElementById('acct-switch-section').style.display=_isAdmin?'none':'';
   document.getElementById('acct-error').style.display='none';
