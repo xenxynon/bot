@@ -5,212 +5,242 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>fileserv</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 <style>
-:root{--nav-h:48px;--bar-h:36px;--toolbar-h:38px;--radius:8px;--radius-sm:6px;--t:.12s ease;--panel-w:300px}
+:root{--nav-h:46px;--bar-h:34px;--toolbar-h:36px;--panel-w:290px}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-bottom:var(--bar-h)}
-.nav{position:sticky;top:0;z-index:100;height:var(--nav-h);background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px}
-.nav-brand{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:var(--text);cursor:default;user-select:none;flex-shrink:0;letter-spacing:-.02em}
-.nav-brand span{color:var(--accent)}
-.breadcrumb{display:flex;align-items:center;gap:2px;font-size:11px;color:var(--sub);flex-shrink:0;font-family:'IBM Plex Mono',monospace;overflow:hidden;max-width:200px}
-.bc-sep{color:var(--border-strong);margin:0 1px}
-.bc-item{background:none;border:none;color:var(--sub);cursor:pointer;font-family:inherit;font-size:11px;padding:2px 4px;border-radius:4px;transition:color var(--t),background var(--t);white-space:nowrap}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;padding-bottom:var(--bar-h)}
+
+/* ── NAV ──────────────────────────────────────────────────────── */
+.nav{position:sticky;top:0;z-index:100;height:var(--nav-h);background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:8px}
+.nav-brand{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--text);cursor:default;user-select:none;flex-shrink:0;letter-spacing:-.01em;display:flex;align-items:center;gap:1px}
+.nav-brand-dot{color:var(--accent)}
+.bc{display:flex;align-items:center;gap:1px;font-size:11px;color:var(--sub);flex-shrink:0;font-family:'JetBrains Mono',monospace;overflow:hidden;max-width:240px}
+.bc-sep{color:var(--border-strong);margin:0 2px;font-size:10px}
+.bc-item{background:none;border:none;color:var(--sub);cursor:pointer;font-family:inherit;font-size:11px;padding:2px 4px;border-radius:3px;transition:color .12s,background .12s;white-space:nowrap}
 .bc-item:hover{color:var(--text);background:var(--surface)}
-.bc-item.current{color:var(--text);cursor:default}
-.search-wrap{flex:1;min-width:0;max-width:280px;position:relative}
-.search-wrap svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);stroke:var(--sub);pointer-events:none}
-#q{width:100%;height:30px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);outline:none;font-family:'IBM Plex Sans',inherit;font-size:13px;color:var(--text);padding:0 10px 0 30px;transition:border-color var(--t)}
-#q:focus{border-color:var(--accent)}
+.bc-item.cur{color:var(--text);cursor:default}
+.search-wrap{flex:1;min-width:0;max-width:260px;position:relative}
+.search-wrap svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);stroke:var(--muted);pointer-events:none}
+#q{width:100%;height:28px;background:var(--surface);border:1px solid var(--border);border-radius:3px;outline:none;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);padding:0 8px 0 28px;transition:border-color .12s,background .12s}
+#q:focus{border-color:var(--accent);background:var(--surface-2)}
 #q::placeholder{color:var(--muted)}
-.nav-right{display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:auto}
-.icon-btn{width:30px;height:30px;border-radius:var(--radius-sm);background:transparent;border:1px solid var(--border);color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--t);flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.nav-right{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto}
+.icon-btn{width:28px;height:28px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .icon-btn:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface)}
 .icon-btn:active{transform:scale(.92)}
-.user-btn{width:30px;height:30px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--sub);font-family:'IBM Plex Mono',monospace;transition:border-color var(--t);flex-shrink:0}
+.user-btn{width:28px;height:28px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--sub);font-family:'JetBrains Mono',monospace;transition:border-color .12s;flex-shrink:0}
 .user-btn:hover{border-color:var(--accent)}
 .user-btn img{width:100%;height:100%;object-fit:cover}
-.btn{height:30px;padding:0 12px;border-radius:var(--radius-sm);font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;border:1px solid;display:flex;align-items:center;gap:6px;transition:all var(--t);white-space:nowrap;-webkit-tap-highlight-color:transparent;letter-spacing:.01em}
-.btn-ghost{background:transparent;border-color:var(--border);color:var(--sub)}
-.btn-ghost:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface)}
-.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn-primary:hover{opacity:.88}
-.btn-danger{background:var(--red);border-color:var(--red);color:#fff}
-.toolbar{height:var(--toolbar-h);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:8px;background:var(--bg);flex-shrink:0}
+
+/* ── TOOLBAR ──────────────────────────────────────────────────── */
+.toolbar{height:var(--toolbar-h);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:6px;background:var(--bg);flex-shrink:0}
 .cat-tabs{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .cat-tabs::-webkit-scrollbar{display:none}
-.ctab{height:24px;padding:0 9px;border-radius:var(--radius-sm);background:transparent;border:1px solid transparent;color:var(--sub);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;cursor:pointer;transition:all var(--t);display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
+.ctab{height:22px;padding:0 8px;border-radius:3px;background:transparent;border:1px solid transparent;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;letter-spacing:.03em}
 .ctab:hover{color:var(--text);background:var(--surface)}
 .ctab.on{color:var(--text);background:var(--surface);border-color:var(--border)}
-.ctab .n{font-size:9px;color:var(--muted);background:var(--surface-2);padding:0 3px;border-radius:3px}
-.toolbar-sep{width:1px;height:18px;background:var(--border);flex-shrink:0}
+.ctab .n{font-size:9px;color:var(--muted);background:var(--surface-2);padding:0 3px;border-radius:2px}
+.toolbar-sep{width:1px;height:16px;background:var(--border);flex-shrink:0}
+.tb-btn{height:22px;padding:0 8px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--sub);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .12s;white-space:nowrap;flex-shrink:0;letter-spacing:.02em}
+.tb-btn:hover{border-color:var(--border-strong);color:var(--text)}
 .sort-wrap{position:relative;flex-shrink:0}
-.sort-toggle{height:24px;padding:0 8px;border-radius:var(--radius-sm);background:transparent;border:1px solid var(--border);color:var(--sub);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all var(--t);white-space:nowrap}
-.sort-toggle:hover,.sort-toggle.open{border-color:var(--border-strong);color:var(--text)}
-.sort-dropdown{display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:50;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;min-width:100px;box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.sort-dropdown{display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:50;background:var(--surface);border:1px solid var(--border);border-radius:3px;overflow:hidden;min-width:110px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
 .sort-dropdown.open{display:block}
-.sort-opt{width:100%;padding:7px 10px;text-align:left;background:none;border:none;color:var(--sub);font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;transition:all var(--t)}
-.sort-opt:hover{background:var(--surface);color:var(--text)}
+.sort-opt{width:100%;padding:6px 10px;text-align:left;background:none;border:none;color:var(--sub);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;transition:all .12s}
+.sort-opt:hover{background:var(--surface-2);color:var(--text)}
 .sort-opt.on{color:var(--text)}
-.sort-dir{color:var(--accent);font-size:10px}
+.sort-dir{color:var(--accent);font-size:9px}
+
+/* ── FILE TABLE ───────────────────────────────────────────────── */
 .table-wrap{flex:1;overflow-y:auto}
-.thead{display:grid;grid-template-columns:1fr 80px 120px 60px;padding:0 14px;height:28px;align-items:center;border-bottom:1px solid var(--border-faint);position:sticky;top:0;background:var(--bg);z-index:5}
-.th{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:.04em;text-transform:uppercase;background:none;border:none;cursor:pointer;text-align:left;padding:0;transition:color var(--t)}
+.thead{display:grid;grid-template-columns:1fr 80px 120px 44px;padding:0 12px;height:26px;align-items:center;border-bottom:1px solid var(--border-faint);position:sticky;top:0;background:var(--bg);z-index:5}
+.th{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);font-weight:500;letter-spacing:.05em;text-transform:uppercase;background:none;border:none;cursor:pointer;text-align:left;padding:0;transition:color .12s}
 .th:hover{color:var(--sub)}
 .th-r{text-align:right;padding-right:4px}
 .th-c{text-align:center}
-.frow{display:grid;grid-template-columns:1fr 80px 120px 60px;padding:0 14px;min-height:44px;align-items:center;border-bottom:1px solid var(--border-faint);transition:background var(--t);cursor:pointer}
+.frow{display:grid;grid-template-columns:1fr 80px 120px 44px;padding:0 12px;min-height:42px;align-items:center;border-bottom:1px solid var(--border-faint);transition:background .1s;cursor:pointer}
 .frow:hover{background:var(--surface)}
-.frow.selected{background:color-mix(in srgb,var(--accent) 8%,transparent);border-bottom-color:color-mix(in srgb,var(--accent) 15%,transparent)}
-.dir-row{}
-.dir-row:hover .fname-main,.dir-row:focus-within .fname-main{color:var(--accent)}
-.fname-cell{display:flex;align-items:center;gap:10px;min-width:0}
-.file-badge{width:32px;height:32px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:500;flex-shrink:0;letter-spacing:.02em;text-transform:uppercase}
+/* NOTE: no .frow.selected — 3-dot click no longer selects row */
+.dir-row:hover .fname-main{color:var(--accent)}
+.fname-cell{display:flex;align-items:center;gap:9px;min-width:0}
+.file-badge{width:30px;height:30px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:600;flex-shrink:0;letter-spacing:.02em;text-transform:uppercase}
 .fb-dir{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
-.fb-arc{background:color-mix(in srgb,#f59e0b 12%,transparent);color:#f59e0b}
-.fb-img{background:color-mix(in srgb,#10b981 12%,transparent);color:#10b981}
-.fb-vid{background:color-mix(in srgb,#8b5cf6 12%,transparent);color:#8b5cf6}
-.fb-aud{background:color-mix(in srgb,#ec4899 12%,transparent);color:#ec4899}
-.fb-doc{background:color-mix(in srgb,#3b82f6 12%,transparent);color:#3b82f6}
+.fb-arc{background:color-mix(in srgb,#f59e0b 10%,transparent);color:#f59e0b}
+.fb-img{background:color-mix(in srgb,#10b981 10%,transparent);color:#10b981}
+.fb-vid{background:color-mix(in srgb,#8b5cf6 10%,transparent);color:#8b5cf6}
+.fb-aud{background:color-mix(in srgb,#ec4899 10%,transparent);color:#ec4899}
+.fb-doc{background:color-mix(in srgb,var(--blue,#5b9cf6) 10%,transparent);color:var(--blue,#5b9cf6)}
 .fb-def{background:var(--surface-2);color:var(--muted)}
 .fname-info{min-width:0}
-.fname-main{font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fname-sub{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-top:1px}
-.fname-meta{display:none;font-size:11px;color:var(--sub)}
-.owner-tag{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-left:4px;opacity:.7}
-.fsize{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--sub);padding-right:4px}
-.fdate{font-size:11px;color:var(--sub);padding-left:8px}
+.fname-main{font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .1s}
+.fname-sub{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px}
+.fname-meta{display:none;font-size:10px;color:var(--sub);font-family:'JetBrains Mono',monospace}
+.owner-tag{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-left:4px;opacity:.7}
+.fsize{text-align:right;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sub);padding-right:4px}
+.fdate{font-size:10px;color:var(--sub);padding-left:8px;font-family:'JetBrains Mono',monospace}
 .fact{display:flex;align-items:center;justify-content:flex-end}
-.more-btn{width:28px;height:28px;border-radius:var(--radius-sm);background:transparent;border:1px solid transparent;color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all var(--t);font-size:16px;line-height:1}
-.frow:hover .more-btn,.more-btn:focus{border-color:var(--border);color:var(--text);background:var(--surface)}
-.more-btn:active,.more-btn.open{background:var(--surface);border-color:var(--border-strong);color:var(--text)}
+.more-btn{width:26px;height:26px;border-radius:3px;background:transparent;border:1px solid transparent;color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;font-size:14px;line-height:1;font-family:'JetBrains Mono',monospace}
+.frow:hover .more-btn,.more-btn:focus{border-color:var(--border);color:var(--text);background:var(--surface-2)}
+.more-btn:active,.more-btn.open{background:var(--surface-2);border-color:var(--border-strong);color:var(--text)}
 
-/* Context menu */
-.ctx-menu{position:fixed;z-index:900;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 8px 32px rgba(0,0,0,.15);min-width:180px;overflow:hidden;animation:ctxIn .1s ease}
-@keyframes ctxIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-.ctx-item{width:100%;padding:9px 14px;background:none;border:none;color:var(--text);font-family:'IBM Plex Sans',inherit;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:9px;text-align:left;transition:background var(--t)}
-.ctx-item:hover{background:var(--surface)}
+/* ── CONTEXT MENU ────────────────────────────────────────────── */
+.ctx-menu{position:fixed;z-index:900;background:var(--surface);border:1px solid var(--border);border-radius:3px;box-shadow:0 8px 28px rgba(0,0,0,.25);min-width:170px;overflow:hidden;animation:ctxIn .1s ease}
+@keyframes ctxIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.ctx-item{width:100%;padding:8px 12px;background:none;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;text-align:left;transition:background .1s}
+.ctx-item:hover{background:var(--surface-2)}
 .ctx-item.danger{color:var(--red)}
 .ctx-item.danger:hover{background:color-mix(in srgb,var(--red) 8%,transparent)}
-.ctx-item svg{flex-shrink:0;opacity:.7}
-.ctx-sep{height:1px;background:var(--border-faint);margin:3px 0}
+.ctx-item svg{flex-shrink:0;opacity:.65}
+.ctx-sep{height:1px;background:var(--border-faint);margin:2px 0}
 
-/* Preview pane */
-.preview-overlay{display:none;position:fixed;inset:0;z-index:200;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(6px)}
+/* ── PREVIEW ──────────────────────────────────────────────────── */
+.preview-overlay{display:none;position:fixed;inset:0;z-index:200;background:color-mix(in srgb,var(--bg) 75%,transparent);backdrop-filter:blur(8px)}
 .preview-overlay.open{display:flex;align-items:center;justify-content:center;animation:fadeIn .15s ease}
-.preview-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);max-width:90vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 16px 64px rgba(0,0,0,.2);overflow:hidden;animation:slideUp .18s cubic-bezier(.34,1,.64,1)}
-.preview-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px;flex-shrink:0}
-.preview-name{font-size:12px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.preview-actions{display:flex;gap:6px;flex-shrink:0}
-.preview-body{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:200px;max-height:calc(90vh - 60px)}
-.preview-body img,.preview-body video,.preview-body audio,.preview-body iframe{max-width:100%;max-height:100%;display:block}
-.preview-body video,.preview-body audio{width:100%}
+.preview-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;max-width:92vw;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;animation:slideUp .18s cubic-bezier(.34,1,.64,1)}
+.preview-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);gap:10px;flex-shrink:0}
+.preview-name{font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.preview-actions{display:flex;gap:5px;flex-shrink:0}
+.preview-body{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:200px;max-height:calc(92vh - 56px);background:var(--bg)}
+.preview-body img{max-width:100%;max-height:100%;display:block;object-fit:contain}
+.preview-body video{max-width:85vw;max-height:80vh;display:block;width:auto;height:auto}
+.preview-body audio{width:340px;max-width:85vw;display:block;margin:32px auto}
 .preview-body iframe{width:80vw;height:70vh;border:none}
-.preview-body pre{padding:16px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--text);max-height:70vh;overflow:auto;width:80vw;max-width:800px}
+.preview-body pre{padding:16px;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--text);max-height:70vh;overflow:auto;width:80vw;max-width:800px}
 .preview-unsupported{padding:40px;text-align:center;color:var(--muted);font-size:13px}
 
-/* Side panel */
-.side-overlay{display:none;position:fixed;inset:0;z-index:150;background:color-mix(in srgb,var(--bg) 40%,transparent);backdrop-filter:blur(2px)}
+/* ── SIDE PANEL ───────────────────────────────────────────────── */
+.side-overlay{display:none;position:fixed;inset:0;z-index:150;background:color-mix(in srgb,var(--bg) 50%,transparent);backdrop-filter:blur(2px)}
 .side-overlay.open{display:block}
-.side-panel{position:fixed;right:-100%;top:0;bottom:0;width:var(--panel-w);background:var(--bg);border-left:1px solid var(--border);z-index:160;transition:right .2s cubic-bezier(.34,1,.64,1);display:flex;flex-direction:column;overflow:hidden}
+.side-panel{position:fixed;right:-100%;top:0;bottom:0;width:var(--panel-w);background:var(--surface);border-left:1px solid var(--border);z-index:160;transition:right .2s cubic-bezier(.34,1,.64,1);display:flex;flex-direction:column;overflow:hidden}
 .side-panel.open{right:0}
-.sp-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
-.sp-title{font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--muted);font-family:'IBM Plex Mono',monospace}
-.sp-close{width:24px;height:24px;border-radius:var(--radius-sm);background:none;border:1px solid var(--border);color:var(--sub);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all var(--t)}
+.sp-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.sp-title{font-size:9px;font-weight:600;letter-spacing:.1em;color:var(--muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase}
+.sp-close{width:22px;height:22px;border-radius:3px;background:none;border:1px solid var(--border);color:var(--sub);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .12s}
 .sp-close:hover{border-color:var(--border-strong);color:var(--text)}
 .sp-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:14px}
-.sp-section-title{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-family:'IBM Plex Mono',monospace;margin-bottom:8px}
-.upload-drop{border:1px dashed var(--border);border-radius:var(--radius-sm);padding:20px 16px;text-align:center;cursor:pointer;color:var(--sub);font-size:12px;transition:all var(--t);display:flex;flex-direction:column;align-items:center;gap:6px}
+.sp-sec-title{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:7px}
+.upload-drop{border:1px dashed var(--border);border-radius:3px;padding:18px 14px;text-align:center;cursor:pointer;color:var(--sub);font-size:11px;transition:all .12s;display:flex;flex-direction:column;align-items:center;gap:5px}
 .upload-drop:hover,.upload-drop.drag-over{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 5%,transparent)}
 .drop-icon{color:var(--muted);display:flex;justify-content:center}
 .upload-drop:hover .drop-icon,.upload-drop.drag-over .drop-icon{color:var(--accent)}
-.drop-hint{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace}
-.upload-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.upload-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;display:flex;flex-direction:column;gap:5px;transition:border-color var(--t)}
+.drop-hint{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.upload-list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+.upload-item{background:var(--surface-2);border:1px solid var(--border);border-radius:3px;padding:8px 9px;display:flex;flex-direction:column;gap:4px;transition:border-color .12s}
 .upload-item.done{border-color:var(--green)}
 .upload-item.failed{border-color:var(--red)}
-.upload-iname{font-size:11px;color:var(--text);font-family:'IBM Plex Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.upload-track{height:3px;background:var(--surface-2);border-radius:2px;overflow:hidden}
-.upload-bar{height:100%;background:var(--accent);border-radius:2px;width:0;transition:width .15s ease}
-.upload-bar.done{background:var(--green)}
-.upload-bar.failed{background:var(--red)}
-.upload-status{font-size:10px;font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.upload-iname{font-size:10px;color:var(--text);font-family:'JetBrains Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upload-track{height:2px;background:var(--surface-3);border-radius:1px;overflow:hidden}
+.upload-bar{height:100%;background:var(--accent);border-radius:1px;width:0;transition:width .15s ease}
+.upload-bar.done{background:var(--green)}.upload-bar.failed{background:var(--red)}
+.upload-status{font-size:9px;font-family:'JetBrains Mono',monospace;display:flex;justify-content:space-between;align-items:center;gap:4px}
 .upload-pct{color:var(--text);font-weight:500;flex-shrink:0}
 .upload-speed{color:var(--sub);flex-shrink:0}
 .upload-eta{color:var(--muted);flex-shrink:0;margin-left:auto}
-.upload-size{color:var(--muted);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.text-input{width:100%;height:34px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:0 10px;outline:none;transition:border-color var(--t)}
+.upload-size{color:var(--muted);font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.text-input{width:100%;height:32px;background:var(--surface-2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;padding:0 9px;outline:none;transition:border-color .12s}
 .text-input:focus{border-color:var(--accent)}
 .text-input::placeholder{color:var(--muted)}
-.textarea-input{width:100%;min-height:64px;resize:vertical;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:8px;outline:none;transition:border-color var(--t)}
+.textarea-input{width:100%;min-height:60px;resize:vertical;background:var(--surface-2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;padding:7px 9px;outline:none;transition:border-color .12s}
 .textarea-input:focus{border-color:var(--accent)}
-.job-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 10px;display:flex;flex-direction:column;gap:5px}
-.job-head{display:flex;align-items:center;justify-content:space-between;gap:6px}
-.job-name{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.job-status{font-size:9px;font-family:'IBM Plex Mono',monospace;font-weight:600;padding:2px 5px;border-radius:3px;flex-shrink:0;text-transform:uppercase}
-.js-starting{background:color-mix(in srgb,var(--sub) 15%,transparent);color:var(--sub)}
-.js-downloading{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
-.js-done{background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green)}
-.js-failed{background:color-mix(in srgb,var(--red) 15%,transparent);color:var(--red)}
-.js-cancelled{background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--muted)}
-.job-track{height:3px;background:var(--surface-2);border-radius:2px;overflow:hidden}
-.job-bar{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease}
-.job-bar.done{background:var(--green)}
-.job-bar.failed{background:var(--red)}
-.job-meta{display:flex;align-items:center;gap:8px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--muted)}
+
+/* job items */
+.job-item{background:var(--surface-2);border:1px solid var(--border);border-radius:3px;padding:8px 9px;display:flex;flex-direction:column;gap:4px}
+.job-head{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.job-name{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.job-status{font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:600;padding:2px 4px;border-radius:2px;flex-shrink:0;text-transform:uppercase}
+.js-starting{background:color-mix(in srgb,var(--sub) 14%,transparent);color:var(--sub)}
+.js-downloading{background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.js-done{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+.js-failed{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.js-cancelled{background:color-mix(in srgb,var(--muted) 14%,transparent);color:var(--muted)}
+.job-track{height:2px;background:var(--surface-3);border-radius:1px;overflow:hidden}
+.job-bar{height:100%;background:var(--accent);border-radius:1px;transition:width .3s ease}
+.job-bar.done{background:var(--green)}.job-bar.failed{background:var(--red)}
+.job-meta{display:flex;align-items:center;gap:7px;font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted)}
 .job-pct{color:var(--sub);font-weight:500}
-.job-error{font-size:10px;color:var(--red);font-family:'IBM Plex Mono',monospace;margin-top:2px}
+.job-error{font-size:9px;color:var(--red);font-family:'JetBrains Mono',monospace;margin-top:2px}
 .job-actions{display:flex;gap:4px;margin-top:2px}
-.job-btn{height:20px;padding:0 7px;border-radius:3px;font-size:10px;font-family:'IBM Plex Mono',monospace;font-weight:500;cursor:pointer;border:1px solid;transition:all var(--t);background:transparent}
+.job-btn{height:18px;padding:0 6px;border-radius:2px;font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:500;cursor:pointer;border:1px solid;transition:all .12s;background:transparent}
 .job-btn-cancel{border-color:var(--border);color:var(--sub)}
 .job-btn-cancel:hover{border-color:var(--red);color:var(--red)}
 .job-btn-retry{border-color:var(--border);color:var(--sub)}
 .job-btn-retry:hover{border-color:var(--accent);color:var(--accent)}
-.job-btn-dismiss{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;transition:color var(--t)}
+.job-btn-dismiss{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0;transition:color .12s}
 .job-btn-dismiss:hover{color:var(--red)}
-.admin-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0}
-.admin-label{font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--sub)}
-.toggle-switch{width:32px;height:18px;border-radius:9px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;position:relative;transition:background var(--t),border-color var(--t)}
-.toggle-switch::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:transform var(--t),background var(--t)}
-.toggle-switch.on{background:var(--accent);border-color:var(--accent)}
-.toggle-switch.on::after{transform:translateX(14px);background:#fff}
+
+/* empty state */
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:10px}
-.empty-icon{width:48px;height:48px;color:var(--border-strong)}
-.empty-msg{font-size:13px;color:var(--muted)}
-.statusbar{position:fixed;bottom:0;left:0;right:0;height:var(--bar-h);background:var(--bg);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:12px;z-index:50}
-.sb-stat{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;flex-shrink:0}
+.empty-icon{width:44px;height:44px;color:var(--border-strong)}
+.empty-msg{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* status bar */
+.statusbar{position:fixed;bottom:0;left:0;right:0;height:var(--bar-h);background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:10px;z-index:50}
+.sb-stat{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;flex-shrink:0}
 .sb-stat b{color:var(--sub)}
-.sb-msg{font-size:11px;color:var(--muted);font-family:'IBM Plex Mono',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;text-align:right;opacity:0;transition:opacity .4s ease}
+.sb-msg{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;text-align:right;opacity:0;transition:opacity .4s ease;font-style:italic}
 .sb-msg.visible{opacity:1}
-#toast{position:fixed;bottom:48px;left:50%;transform:translateX(-50%) translateY(4px);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:'IBM Plex Mono',monospace;opacity:0;transition:opacity .15s ease,transform .15s ease;pointer-events:none;z-index:500;max-width:360px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%) translateY(4px);background:var(--text);color:var(--bg);padding:7px 13px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;opacity:0;transition:opacity .15s ease,transform .15s ease;pointer-events:none;z-index:500;max-width:360px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-#toast.err{background:var(--red)}
-/* Modals */
-.overlay{position:fixed;inset:0;z-index:300;background:color-mix(in srgb,var(--bg) 60%,transparent);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .12s ease}
+#toast.err{background:var(--red);color:#fff}
+
+/* modals */
+.overlay{position:fixed;inset:0;z-index:300;background:color-mix(in srgb,var(--bg) 65%,transparent);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .12s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.panel{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);width:min(420px,100%);display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.12);animation:slideUp .18s cubic-bezier(.34,1,.64,1)}
-@keyframes slideUp{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
-.panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;flex-shrink:0;border-bottom:1px solid var(--border)}
-.panel-title{font-size:12px;font-weight:600;color:var(--text);font-family:'IBM Plex Mono',monospace}
-.panel-close{width:24px;height:24px;border-radius:var(--radius-sm);background:none;border:1px solid var(--border);color:var(--sub);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all var(--t);line-height:1}
+@keyframes slideUp{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:4px;width:min(400px,100%);display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.3);animation:slideUp .18s cubic-bezier(.34,1,.64,1)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.panel-title{font-size:11px;font-weight:600;color:var(--text);font-family:'JetBrains Mono',monospace;letter-spacing:.01em}
+.panel-close{width:22px;height:22px;border-radius:3px;background:none;border:1px solid var(--border);color:var(--sub);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .12s;line-height:1}
 .panel-close:hover{border-color:var(--border-strong);color:var(--text)}
-.panel-body{padding:14px;display:flex;flex-direction:column;gap:10px}
-.panel-label{font-size:11px;color:var(--sub);font-family:'IBM Plex Mono',monospace;margin-bottom:3px}
-.panel-input{width:100%;height:38px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:0 10px;outline:none;transition:border-color var(--t)}
+.panel-body{padding:13px;display:flex;flex-direction:column;gap:9px}
+.panel-label{font-size:10px;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-bottom:3px}
+.panel-input{width:100%;height:36px;background:var(--surface-2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:0 9px;outline:none;transition:border-color .12s}
 .panel-input:focus{border-color:var(--accent)}
-.panel-actions{display:flex;gap:8px;margin-top:4px}
-.panel-error{font-size:11px;color:var(--red);font-family:'IBM Plex Mono',monospace;display:none}
-/* Text editor modal */
-.editor-modal .panel{width:min(700px,96vw)}
-.editor-textarea{width:100%;height:60vh;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:10px;outline:none;resize:vertical;transition:border-color var(--t);line-height:1.6;tab-size:2}
+.panel-actions{display:flex;gap:7px;margin-top:3px}
+.panel-error{font-size:10px;color:var(--red);font-family:'JetBrains Mono',monospace;display:none}
+.btn{height:28px;padding:0 11px;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:500;cursor:pointer;border:1px solid;display:flex;align-items:center;gap:5px;transition:all .12s;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--sub)}
+.btn-ghost:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface-2)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.88}
+.btn-danger{background:var(--red);border-color:var(--red);color:#fff}
+
+/* editor */
+.editor-modal .panel{width:min(680px,96vw)}
+.editor-textarea{width:100%;height:58vh;background:var(--surface-2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;padding:10px;outline:none;resize:vertical;transition:border-color .12s;line-height:1.6;tab-size:2}
 .editor-textarea:focus{border-color:var(--accent)}
-/* Account modal */
-.acct-panel .panel{width:min(340px,100%)}
-/* Mobile */
+
+/* account modal */
+.acct-panel .panel{width:min(310px,100%)}
+
+/* ── MOVE/COPY FOLDER PICKER ──────────────────────────────────── */
+.move-panel .panel{width:min(420px,100%)}
+.fp-header{display:flex;align-items:center;gap:5px;margin-bottom:6px}
+.fp-path{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sub);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-up-btn{height:22px;padding:0 7px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--sub);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:3px;transition:all .12s;flex-shrink:0}
+.fp-up-btn:hover:not(:disabled){border-color:var(--border-strong);color:var(--text)}
+.fp-up-btn:disabled{opacity:.35;cursor:default}
+.fp-root-btn{height:22px;padding:0 7px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--sub);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:3px;transition:all .12s;flex-shrink:0}
+.fp-root-btn:hover{border-color:var(--border-strong);color:var(--text)}
+.fp-list{background:var(--surface-2);border:1px solid var(--border);border-radius:3px;max-height:200px;overflow-y:auto;margin-bottom:6px}
+.fp-empty{padding:20px;text-align:center;font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.fp-item{display:flex;align-items:center;gap:7px;padding:7px 9px;cursor:pointer;transition:background .1s;border-bottom:1px solid var(--border-faint)}
+.fp-item:last-child{border-bottom:none}
+.fp-item:hover{background:var(--surface-3)}
+.fp-item.selected{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.fp-item-name{font-size:11px;color:var(--text);font-family:'JetBrains Mono',monospace;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fp-item-arrow{font-size:10px;color:var(--muted);flex-shrink:0}
+.fp-new-btn{height:22px;padding:0 8px;border-radius:3px;background:transparent;border:1px solid var(--border);color:var(--sub);font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;display:flex;align-items:center;gap:3px;transition:all .12s}
+.fp-new-btn:hover{border-color:var(--accent);color:var(--accent)}
+.fp-dest-info{font-size:10px;color:var(--sub);font-family:'JetBrains Mono',monospace;padding:5px 8px;background:var(--surface-2);border-radius:3px;border:1px solid var(--border)}
+.fp-dest-label{color:var(--muted)}
+
+/* mobile */
 @media(max-width:600px){
-  .breadcrumb{display:none}
-  .nav{padding:0 10px;gap:6px}
+  .bc{display:none}
+  .nav{padding:0 10px;gap:5px}
   .search-wrap{max-width:none}
   .toolbar{padding:0 10px}
   .thead{display:none}
@@ -219,7 +249,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
   .fsize,.fdate{display:none}
   .fname-meta{display:block!important}
   .fname-sub{display:none}
-  .statusbar{padding:0 10px;gap:8px}
+  .statusbar{padding:0 10px;gap:7px}
   .side-panel{width:100%}
   .preview-box{max-width:100vw;max-height:100vh;border-radius:0}
 }
@@ -228,34 +258,34 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 </head>
 <body>
 <nav class="nav">
-  <div class="nav-brand">file<span>serv</span></div>
-  <div class="breadcrumb" id="breadcrumb"></div>
+  <div class="nav-brand">file<span class="nav-brand-dot">.</span>serv</div>
+  <div class="bc" id="breadcrumb"></div>
   <div class="search-wrap">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input id="q" type="search" placeholder="Search…" autocomplete="off" spellcheck="false">
   </div>
   <div class="nav-right">
     <button class="icon-btn" onclick="load()" title="Refresh">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
     </button>
-    <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">◑</button>
-    <button class="icon-btn" id="panel-btn" onclick="openPanel()" title="Upload / Fetch / Torrent" style="display:none">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <button class="icon-btn" id="panel-btn" onclick="openPanel()" title="Upload / Fetch" style="display:none">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
+    <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">◐</button>
     <button class="user-btn" id="user-btn" onclick="openAcctModal()" title="Account"></button>
   </div>
 </nav>
 
 <div class="toolbar" id="toolbar">
   <div class="cat-tabs" id="cattabs"></div>
-  <button class="sort-toggle" id="mkdir-btn" onclick="openMkdirModal()" style="display:none">
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-    New folder
+  <button class="tb-btn" id="mkdir-btn" onclick="openMkdirModal()" style="display:none">
+    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+    mkdir
   </button>
   <div class="toolbar-sep" id="mkdir-sep" style="display:none"></div>
   <div class="sort-wrap">
-    <button class="sort-toggle" id="sort-toggle" onclick="toggleSortMenu()">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
+    <button class="tb-btn" id="sort-toggle" onclick="toggleSortMenu()">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="9" y1="18" x2="15" y2="18"/></svg>
       <span id="sort-label">date</span>
     </button>
     <div class="sort-dropdown" id="sort-dropdown"></div>
@@ -280,7 +310,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 </div>
 <div id="toast"></div>
 
-<!-- Context menu (shared) -->
+<!-- Context menu -->
 <div id="ctx-menu" class="ctx-menu" style="display:none"></div>
 
 <!-- Preview overlay -->
@@ -302,43 +332,37 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 <div class="side-overlay" id="side-overlay" onclick="closePanel()"></div>
 <div class="side-panel" id="side-panel">
   <div class="sp-head">
-    <span class="sp-title">ACTIONS</span>
+    <span class="sp-title">Actions</span>
     <button class="sp-close" onclick="closePanel()">×</button>
   </div>
   <div class="sp-body">
     <div class="sp-section" id="sp-upload-section" style="display:none">
-      <div class="sp-section-title">Upload files</div>
+      <div class="sp-sec-title">Upload files</div>
       <div class="upload-drop" id="upload-drop" onclick="document.getElementById('file-input').click()">
-        <div class="drop-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <div class="drop-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
         <div>Drop files or click to browse</div>
-        <div class="drop-hint">all types · multiple files ok</div>
+        <div class="drop-hint">all types · multiple ok</div>
       </div>
       <input type="file" id="file-input" multiple style="display:none">
       <div class="upload-list" id="upload-list"></div>
     </div>
-
     <div class="sp-section" id="sp-fetch-section" style="display:none">
-      <div class="sp-section-title">Fetch from URL</div>
-      <input class="text-input" id="fetch-url-input" type="url" placeholder="https://example.com/file.zip" autocomplete="off" style="margin-bottom:8px">
-      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:8px" onclick="submitFetch()">Fetch file</button>
-      <div id="fetch-jobs-list" style="display:flex;flex-direction:column;gap:6px"></div>
+      <div class="sp-sec-title">Fetch from URL</div>
+      <input class="text-input" id="fetch-url-input" type="url" placeholder="https://example.com/file.zip" autocomplete="off" style="margin-bottom:7px">
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:7px" onclick="submitFetch()">Fetch file</button>
+      <div id="fetch-jobs-list" style="display:flex;flex-direction:column;gap:5px"></div>
     </div>
-
     <div class="sp-section" id="sp-torrent-section" style="display:none">
-      <div class="sp-section-title">Torrent / Magnet</div>
-      <textarea class="textarea-input" id="torrent-uri" placeholder="magnet:?xt=urn:btih:… or https://…/file.torrent" style="margin-bottom:8px"></textarea>
-      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:8px" onclick="submitTorrent()">Start download</button>
-      <div class="upload-drop" id="torrent-file-drop" onclick="document.getElementById('torrent-file-input').click()" style="padding:10px;font-size:11px;font-family:'IBM Plex Mono',monospace">drop .torrent file here</div>
+      <div class="sp-sec-title">Torrent / Magnet</div>
+      <textarea class="textarea-input" id="torrent-uri" placeholder="magnet:?xt=urn:btih:… or https://…/file.torrent" style="margin-bottom:7px"></textarea>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:7px" onclick="submitTorrent()">Start download</button>
+      <div class="upload-drop" id="torrent-file-drop" onclick="document.getElementById('torrent-file-input').click()" style="padding:9px;font-size:10px;font-family:'JetBrains Mono',monospace">drop .torrent file here</div>
       <input type="file" id="torrent-file-input" accept=".torrent" style="display:none">
-      <div id="torrent-jobs-list" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
+      <div id="torrent-jobs-list" style="display:flex;flex-direction:column;gap:5px;margin-top:7px"></div>
     </div>
-
     <div class="sp-section" id="sp-admin-section" style="display:none">
-      <div class="sp-section-title">Admin</div>
-      <div class="admin-row"><span class="admin-label">torrents</span><button class="toggle-switch" id="torrent-toggle" onclick="toggleFlag('torrent_enabled',this)"></button></div>
-      <div class="admin-row"><span class="admin-label">registration</span><button class="toggle-switch" id="reg-toggle" onclick="toggleRegFlag(this)"></button></div>
-      <div class="sp-section-title" style="margin-top:8px">Users</div>
-      <div id="user-list" style="display:flex;flex-direction:column;gap:4px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:var(--sub)"></div>
+      <div class="sp-sec-title">Users</div>
+      <div id="user-list" style="display:flex;flex-direction:column;gap:3px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--sub)"></div>
     </div>
   </div>
 </div>
@@ -347,7 +371,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 <div id="rename-overlay" style="display:none">
   <div class="overlay" onclick="if(event.target===this)closeModal('rename')">
     <div class="panel" onclick="event.stopPropagation()">
-      <div class="panel-head"><span class="panel-title">Rename</span><button class="panel-close" onclick="closeModal('rename')">×</button></div>
+      <div class="panel-head"><span class="panel-title">rename</span><button class="panel-close" onclick="closeModal('rename')">×</button></div>
       <div class="panel-body">
         <div class="panel-label">New name</div>
         <input class="panel-input" id="rename-input" type="text" autocomplete="off">
@@ -365,7 +389,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 <div id="mkdir-overlay" style="display:none">
   <div class="overlay" onclick="if(event.target===this)closeModal('mkdir')">
     <div class="panel" onclick="event.stopPropagation()">
-      <div class="panel-head"><span class="panel-title">New folder</span><button class="panel-close" onclick="closeModal('mkdir')">×</button></div>
+      <div class="panel-head"><span class="panel-title">new folder</span><button class="panel-close" onclick="closeModal('mkdir')">×</button></div>
       <div class="panel-body">
         <div class="panel-label">Folder name</div>
         <input class="panel-input" id="mkdir-input" type="text" autocomplete="off">
@@ -379,17 +403,23 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
   </div>
 </div>
 
-<!-- Move/copy modal -->
-<div id="move-overlay" style="display:none">
+<!-- Move/copy modal — folder picker -->
+<div id="move-overlay" style="display:none" class="move-panel">
   <div class="overlay" onclick="if(event.target===this)closeModal('move')">
     <div class="panel" onclick="event.stopPropagation()">
-      <div class="panel-head"><span class="panel-title" id="move-title">Move file</span><button class="panel-close" onclick="closeModal('move')">×</button></div>
+      <div class="panel-head"><span class="panel-title" id="move-title">move file</span><button class="panel-close" onclick="closeModal('move')">×</button></div>
       <div class="panel-body">
-        <div class="panel-label">Destination folder (relative path, or leave blank for root)</div>
-        <input class="panel-input" id="move-input" type="text" autocomplete="off" placeholder="e.g. subfolder/nested">
+        <div class="fp-header">
+          <button class="fp-root-btn" onclick="fpNav('')" title="Go to root">~ root</button>
+          <button class="fp-up-btn" id="fp-up-btn" onclick="fpUp()" title="Go up">↑ up</button>
+          <span class="fp-path" id="fp-path">~</span>
+          <button class="fp-new-btn" onclick="fpNewFolder()">+ folder</button>
+        </div>
+        <div class="fp-list" id="fp-list"></div>
+        <div class="fp-dest-info" id="fp-dest-info"><span class="fp-dest-label">destination: </span><span id="fp-dest-text">root</span></div>
         <div class="panel-error" id="move-error"></div>
         <div class="panel-actions">
-          <button class="btn btn-primary" style="flex:1" id="move-submit-btn" onclick="submitMove()">Move</button>
+          <button class="btn btn-primary" style="flex:1" id="move-submit-btn" onclick="submitMove()">Move here</button>
           <button class="btn btn-ghost" onclick="closeModal('move')">Cancel</button>
         </div>
       </div>
@@ -401,12 +431,12 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 <div id="share-overlay" style="display:none">
   <div class="overlay" onclick="if(event.target===this)closeModal('share')">
     <div class="panel" onclick="event.stopPropagation()">
-      <div class="panel-head"><span class="panel-title">Create share link</span><button class="panel-close" onclick="closeModal('share')">×</button></div>
+      <div class="panel-head"><span class="panel-title">create share link</span><button class="panel-close" onclick="closeModal('share')">×</button></div>
       <div class="panel-body">
         <div class="panel-label">Expires after (hours)</div>
-        <input class="panel-input" id="share-ttl" type="number" value="168" min="1" style="margin-bottom:8px">
+        <input class="panel-input" id="share-ttl" type="number" value="168" min="1" style="margin-bottom:7px">
         <div class="panel-label">Password (optional)</div>
-        <input class="panel-input" id="share-pw" type="password" placeholder="Leave blank for no password" style="margin-bottom:8px">
+        <input class="panel-input" id="share-pw" type="password" placeholder="Leave blank for none" style="margin-bottom:7px">
         <div class="panel-label">Download limit (optional)</div>
         <input class="panel-input" id="share-hits" type="number" placeholder="Leave blank for unlimited">
         <div class="panel-error" id="share-error"></div>
@@ -415,7 +445,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
           <button class="btn btn-ghost" onclick="closeModal('share')">Cancel</button>
         </div>
         <div id="share-result" style="display:none">
-          <div class="panel-label" style="margin-top:4px">Share URL (copied to clipboard)</div>
+          <div class="panel-label" style="margin-top:3px">Share URL (copied to clipboard)</div>
           <input class="panel-input" id="share-url" readonly style="cursor:pointer" onclick="this.select()">
         </div>
       </div>
@@ -427,7 +457,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 <div id="editor-overlay" style="display:none" class="editor-modal">
   <div class="overlay" onclick="if(event.target===this)closeModal('editor')">
     <div class="panel" onclick="event.stopPropagation()">
-      <div class="panel-head"><span class="panel-title" id="editor-title">Edit file</span><button class="panel-close" onclick="closeModal('editor')">×</button></div>
+      <div class="panel-head"><span class="panel-title" id="editor-title">edit file</span><button class="panel-close" onclick="closeModal('editor')">×</button></div>
       <div class="panel-body">
         <textarea class="editor-textarea" id="editor-textarea" spellcheck="false"></textarea>
         <div class="panel-error" id="editor-error"></div>
@@ -444,27 +474,23 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 <div id="acct-overlay" style="display:none" class="acct-panel">
   <div class="overlay" onclick="if(event.target===this)closeModal('acct')">
     <div class="panel" onclick="event.stopPropagation()">
-      <div class="panel-head"><span class="panel-title" id="acct-title">Account</span><button class="panel-close" onclick="closeModal('acct')">×</button></div>
+      <div class="panel-head"><span class="panel-title" id="acct-title">account</span><button class="panel-close" onclick="closeModal('acct')">×</button></div>
       <div class="panel-body">
-        <div style="font-size:12px;color:var(--sub);font-family:'IBM Plex Mono',monospace" id="acct-info"></div>
+        <div style="font-size:11px;color:var(--sub);font-family:'JetBrains Mono',monospace" id="acct-info"></div>
         <div id="acct-avatar-section" style="display:none">
           <input type="file" id="avatar-input" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
           <button class="btn btn-ghost" style="width:100%" onclick="document.getElementById('avatar-input').click()">Upload avatar</button>
         </div>
         <div id="acct-switch-section" style="display:none">
-          <div style="font-size:11px;color:var(--sub);font-family:'IBM Plex Mono',monospace;margin-bottom:6px">Enter admin password to switch:</div>
-          <input class="panel-input" id="acct-pw" type="password" placeholder="Admin password" autocomplete="off" style="margin-bottom:6px">
-          <div class="panel-error" id="acct-error" style="margin-bottom:4px">Wrong password.</div>
+          <div style="font-size:10px;color:var(--sub);font-family:'JetBrains Mono',monospace;margin-bottom:5px">Admin password to switch:</div>
+          <input class="panel-input" id="acct-pw" type="password" placeholder="admin password" autocomplete="off" style="margin-bottom:5px">
+          <div class="panel-error" id="acct-error" style="margin-bottom:3px">wrong password.</div>
           <div class="panel-actions">
             <button class="btn btn-primary" style="flex:1" onclick="submitSuSwitch()">Switch to admin</button>
             <button class="btn btn-ghost" onclick="closeModal('acct')">Cancel</button>
           </div>
         </div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn btn-ghost" style="flex:1" onclick="toggleTheme();closeModal('acct')">◐ Theme</button>
-          <button class="btn btn-ghost" style="flex:1" onclick="load();closeModal('acct')">↺ Refresh</button>
-        </div>
-        <button class="btn btn-ghost" style="width:100%;color:var(--red);border-color:var(--border);margin-top:4px" onclick="doLogout()">Sign out</button>
+        <button class="btn btn-ghost" style="width:100%;color:var(--red);border-color:var(--border);margin-top:3px" onclick="doLogout()">Sign out</button>
       </div>
     </div>
   </div>
@@ -472,13 +498,13 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 
 <script src="/static/theme.js"></script>
 <script>
-// ─── State ────────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────────
 let _all=[], _dirs=[], _cat=null, _isAdmin=false, _canWrite=false;
 let _torrentEnabled=false, _username=null, _avatar=null;
 let _sort={col:'mtime',dir:-1}, _path='';
 let _progressInterval=null;
 
-// ─── Category defs ────────────────────────────────────────────────────────────
+// ── Category defs ─────────────────────────────────────────────────────────────
 const CATS=[
   {id:'archive',label:'archives',exts:new Set('zip gz xz zst tar 7z bz2 lz4 br rar'.split(' '))},
   {id:'image',  label:'images',  exts:new Set('jpg jpeg png gif webp svg bmp avif ico'.split(' '))},
@@ -487,73 +513,95 @@ const CATS=[
   {id:'doc',    label:'docs',    exts:new Set('txt log md json xml yaml toml cfg py js ts html css pdf doc docx xls xlsx csv'.split(' '))},
 ];
 const gext=n=>{const i=n.lastIndexOf('.');return i>0?n.slice(i+1).toLowerCase():''};
-function catFor(name){const e=gext(name);for(const c of CATS)if(c.exts.has(e))return c.id;return'other'}
-
+function catFor(n){const e=gext(n);for(const c of CATS)if(c.exts.has(e))return c.id;return'other'}
 const BADGE_MAP={archive:'fb-arc',image:'fb-img',video:'fb-vid',audio:'fb-aud',doc:'fb-doc'};
-function badge(name){const e=gext(name),c=catFor(name);return[e.slice(0,4)||c,BADGE_MAP[c]||'fb-def']}
+function badge(n){const e=gext(n),c=catFor(n);return[e.slice(0,4)||c,BADGE_MAP[c]||'fb-def']}
 
-// ─── Formatters ───────────────────────────────────────────────────────────────
+// ── Formatters ────────────────────────────────────────────────────────────────
 const fsize=b=>{if(!b)return'0 B';const u=['B','KB','MB','GB','TB'];let i=0;while(b>=1024&&i<4){b/=1024;i++}return b.toFixed(i?1:0)+'\u202f'+u[i]};
 const fdate=ts=>{const d=new Date(ts*1000),n=new Date();if(d.toDateString()===n.toDateString())return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});if(n-d<7*86400e3)return d.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});return d.toLocaleDateString([],{year:'numeric',month:'short',day:'numeric'})};
 const feta=s=>{if(s<0)return'—';if(s<60)return s+'s';if(s<3600)return Math.floor(s/60)+'m '+(s%60)+'s';return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'};
 const fspd=b=>b?fsize(b)+'/s':'';
 const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
+// ── SVGs ──────────────────────────────────────────────────────────────────────
+const FOLDER_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
+const EYE_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const DL_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const COPY_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+const EDIT_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+const MOVE_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
+const SHARE_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
+const DEL_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>`;
+const ZIP_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const PEN_SVG=`<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`;
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
 let _tt;
 function toast(msg,dur=2200,err=false){
   const el=document.getElementById('toast');
-  el.textContent=msg; el.classList.toggle('err',err); el.classList.add('show');
-  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),dur);
+  el.textContent=msg;el.classList.toggle('err',err);el.classList.add('show');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),dur);
 }
 function toastErr(msg,dur=3500){toast(msg,dur,true)}
 
-// ─── Status bar messages ──────────────────────────────────────────────────────
-const _msgs=['works on my machine™','why is it always DNS','git blame: everyone else','sudo make me a sandwich','rm -rf /feelings','it was working yesterday','404: motivation not found'];
-let _msgI=0;
+// ── Status bar easter eggs ────────────────────────────────────────────────────
+const _eggs=[
+  // nerdy dev
+  "works on my machine™","why is it always DNS","git blame: everyone else",
+  "sudo make me a sandwich","rm -rf /feelings","it was working yesterday",
+  "404: motivation not found","undefined is not a function","have you tried git stash?",
+  "technically that's a feature","segfault in your social life","chmod 777 and pray",
+  "it's not a bug, it's entropy","localhost:3000 is love","doas work pls",
+  // sussy/unhinged
+  "what are you doing step-server","did someone say 'rm -rf /'",
+  "those files won't judge you","this folder has seen things",
+  "uploading: your dignity.zip","fetching: motivation.tar.gz",
+  "error 418: you're a teapot","your files are safe... probably",
+  "sudo touch me","the real uploads were the friends we made along the way",
+  // serious/philosophical
+  "data is ephemeral. chaos is forever.","all files eventually become /dev/null",
+  "entropy always wins","you are the kernel now",
+  "in the beginning there was /","the cloud is just someone else's problem",
+  // funny
+  "have you tried turning off and on again","patience is a virtual filesystem",
+  "downloading more RAM...","disk full? delete system32",
+  "technically still O(1)","console.log('here')","where did I put that file...",
+  "yes this is dog","compiling...","estimating completion time: never",
+];
+let _eggIdx=[];
+function _nextEgg(){if(!_eggIdx.length){_eggIdx=[..._eggs.keys()];_eggIdx.sort(()=>Math.random()-.5);}return _eggs[_eggIdx.pop()];}
 function sbMsg(m){
   const el=document.getElementById('sb-msg');
   el.classList.remove('visible');
-  setTimeout(()=>{el.textContent=m||_msgs[_msgI++%_msgs.length];el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),9000)},300);
+  setTimeout(()=>{el.textContent=m||_nextEgg();el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),9000)},300);
 }
-setTimeout(sbMsg,3500); setInterval(sbMsg,20000);
+setTimeout(sbMsg,3500); setInterval(sbMsg,22000);
 
-// ─── Context menu ─────────────────────────────────────────────────────────────
-let _ctxTarget=null;
+// ── Context menu ──────────────────────────────────────────────────────────────
 let _ctxActions=[];
-const FOLDER_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
-const EYE_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-const DL_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-const COPY_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-const EDIT_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
-const MOVE_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
-const SHARE_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
-const DEL_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>`;
-const ZIP_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
-const PEN_SVG=`<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>`;
-
 function showCtx(e,items){
-  e.preventDefault(); e.stopPropagation();
+  e.preventDefault();e.stopPropagation();
   _ctxActions=[];
   const menu=document.getElementById('ctx-menu');
   menu.innerHTML=items.map(it=>{
-    if(it==='---') return '<div class="ctx-sep"></div>';
+    if(it==='---')return '<div class="ctx-sep"></div>';
     const idx=_ctxActions.push(it.fn)-1;
     return `<button class="ctx-item${it.danger?' danger':''}" data-ci="${idx}">${it.icon||''} ${it.label}</button>`;
   }).join('');
   menu.querySelectorAll('[data-ci]').forEach(btn=>{
-    btn.addEventListener('click',()=>{const fn=_ctxActions[+btn.dataset.ci];if(fn)fn();hideCtx()});
+    btn.addEventListener('click',()=>{const fn=_ctxActions[+btn.dataset.ci];if(fn)fn();hideCtx();});
   });
   menu.style.display='block';
-  const vw=window.innerWidth, vh=window.innerHeight;
-  const mw=menu.offsetWidth, mh=menu.offsetHeight;
-  let x=e.clientX, y=e.clientY;
-  if(x+mw>vw-8) x=vw-mw-8;
-  if(y+mh>vh-8) y=vh-mh-8;
-  menu.style.left=x+'px'; menu.style.top=y+'px';
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const mw=menu.offsetWidth,mh=menu.offsetHeight;
+  let x=e.clientX,y=e.clientY;
+  if(x+mw>vw-8)x=vw-mw-8;
+  if(y+mh>vh-8)y=vh-mh-8;
+  menu.style.left=x+'px';menu.style.top=y+'px';
   setTimeout(()=>document.addEventListener('click',hideCtx,{once:true}),0);
 }
-function hideCtx(){const m=document.getElementById('ctx-menu');if(m)m.style.display='none'}
+function hideCtx(){const m=document.getElementById('ctx-menu');if(m)m.style.display='none';}
 
 const EDITABLE_EXTS=new Set('txt md log json yaml yml toml cfg ini conf py js ts html css xml csv env gitignore'.split(' '));
 function fileCtxItems(f){
@@ -569,12 +617,11 @@ function fileCtxItems(f){
     f.can_modify&&{label:'Move',icon:MOVE_SVG,fn:()=>openMoveModal(rel,f.name,false)},
     f.can_modify&&{label:'Copy to…',icon:COPY_SVG,fn:()=>openMoveModal(rel,f.name,true)},
     isText&&f.can_modify&&{label:'Edit',icon:PEN_SVG,fn:()=>openEditor(rel,f.name)},
-    {label:'Create share link',icon:SHARE_SVG,fn:()=>openShareModal(rel)},
+    {label:'Share link',icon:SHARE_SVG,fn:()=>openShareModal(rel)},
     '---',
     f.can_modify&&{label:'Delete',icon:DEL_SVG,danger:true,fn:()=>confirmDelete(rel,f.name,null)},
   ].filter(Boolean);
 }
-
 function dirCtxItems(d){
   const sub=_path?_path+'/'+d.name:d.name;
   return[
@@ -586,31 +633,38 @@ function dirCtxItems(d){
   ].filter(Boolean);
 }
 
-// ─── Preview ──────────────────────────────────────────────────────────────────
+// ── Preview ───────────────────────────────────────────────────────────────────
 let _curPreviewRel=null;
 function openPreview(rel,name){
   _curPreviewRel=rel;
   document.getElementById('preview-name').textContent=name;
   const body=document.getElementById('preview-body');
-  body.innerHTML='<div style="padding:30px;color:var(--muted)">Loading…</div>';
+  body.innerHTML='<div style="padding:30px;color:var(--muted);font-family:\'JetBrains Mono\',monospace;font-size:11px">loading…</div>';
   document.getElementById('preview-overlay').classList.add('open');
   const cat=catFor(name);
   const url='/preview/'+rel.split('/').map(encodeURIComponent).join('/');
   if(cat==='image'){
     body.innerHTML=`<img src="${url}" alt="${esc(name)}" style="max-height:80vh;object-fit:contain">`;
   } else if(cat==='video'){
-    body.innerHTML=`<video src="${url}" controls style="max-height:80vh;max-width:85vw"></video>`;
+    // explicit preload + proper controls for seek to work
+    const vid=document.createElement('video');
+    vid.src=url; vid.controls=true; vid.preload='metadata';
+    vid.style.cssText='max-width:85vw;max-height:80vh;display:block';
+    body.innerHTML=''; body.appendChild(vid);
   } else if(cat==='audio'){
-    body.innerHTML=`<audio src="${url}" controls></audio>`;
+    const aud=document.createElement('audio');
+    aud.src=url; aud.controls=true; aud.preload='metadata';
+    aud.style.cssText='width:340px;max-width:85vw;display:block;margin:32px auto';
+    body.innerHTML=''; body.appendChild(aud);
   } else if(gext(name)==='pdf'){
     body.innerHTML=`<iframe src="${url}" title="${esc(name)}"></iframe>`;
   } else if(EDITABLE_EXTS.has(gext(name))){
     fetch('/edit/'+rel.split('/').map(encodeURIComponent).join('/'))
       .then(r=>r.json()).then(d=>{
         body.innerHTML=`<pre>${esc(d.content||'(empty)')}</pre>`;
-      }).catch(()=>{ body.innerHTML=`<div class="preview-unsupported">Could not load file content.</div>`; });
+      }).catch(()=>{body.innerHTML=`<div class="preview-unsupported">Could not load file content.</div>`;});
   } else {
-    body.innerHTML=`<div class="preview-unsupported">No preview available for this file type.<br><br><button class="btn btn-primary" onclick="dlFile('${rel}','${name}')">Download</button></div>`;
+    body.innerHTML=`<div class="preview-unsupported">No preview for this file type.<br><br><button class="btn btn-primary" onclick="dlFile('${rel}','${name}')">Download</button></div>`;
   }
 }
 function closePreview(){
@@ -622,12 +676,12 @@ function dlCurrent(){if(_curPreviewRel){const n=_curPreviewRel.split('/').pop();
 async function copyCurrent(){if(_curPreviewRel)await copyLink(_curPreviewRel)}
 document.getElementById('preview-overlay').addEventListener('keydown',e=>{if(e.key==='Escape')closePreview()});
 
-// ─── Load ─────────────────────────────────────────────────────────────────────
+// ── Load ──────────────────────────────────────────────────────────────────────
 async function load(path){
   if(path!==undefined)_path=path;
   history.pushState({path:_path},'',_path?'/?p='+encodeURIComponent(_path):'/');
   try{
-    const [fr,fs]=await Promise.all([
+    const[fr,fs]=await Promise.all([
       fetch('/files'+(_path?'?path='+encodeURIComponent(_path):'')),
       fetch('/session')]);
     if(fr.status===401){location.href='/';return}
@@ -657,27 +711,26 @@ function _applyPerms(){
   document.getElementById('sp-admin-section').style.display=_isAdmin?'':'none';
   document.getElementById('mkdir-btn').style.display=_canWrite?'':'none';
   document.getElementById('mkdir-sep').style.display=_canWrite?'':'none';
-  document.getElementById('torrent-toggle').classList.toggle('on',_torrentEnabled);
-  if(_canWrite&&!_progressInterval) _progressInterval=setInterval(pollProgress,2500);
+  if(_canWrite&&!_progressInterval)_progressInterval=setInterval(pollProgress,2500);
 }
 
-// ─── Breadcrumb ───────────────────────────────────────────────────────────────
+// ── Breadcrumb ────────────────────────────────────────────────────────────────
 function buildBreadcrumb(){
-  const bc=document.getElementById('breadcrumb'); bc.innerHTML='';
-  const r0=document.createElement('button'); r0.className='bc-item'; r0.textContent='~';
-  r0.onclick=()=>load(''); bc.appendChild(r0);
+  const bc=document.getElementById('breadcrumb');bc.innerHTML='';
+  const r0=document.createElement('button');r0.className='bc-item';r0.textContent='~';
+  r0.onclick=()=>load('');bc.appendChild(r0);
   if(!_path)return;
   _path.split('/').filter(Boolean).forEach((p,i,arr)=>{
-    const sep=document.createElement('span'); sep.className='bc-sep'; sep.textContent='/'; bc.appendChild(sep);
+    const sep=document.createElement('span');sep.className='bc-sep';sep.textContent='/';bc.appendChild(sep);
     const sub=arr.slice(0,i+1).join('/');
-    if(i===arr.length-1){const s=document.createElement('span');s.className='bc-item current';s.textContent=p;bc.appendChild(s)}
+    if(i===arr.length-1){const s=document.createElement('span');s.className='bc-item cur';s.textContent=p;bc.appendChild(s)}
     else{const b=document.createElement('button');b.className='bc-item';b.textContent=p;b.onclick=()=>load(sub);bc.appendChild(b)}
   });
 }
 
-// ─── Category tabs ────────────────────────────────────────────────────────────
+// ── Category tabs ─────────────────────────────────────────────────────────────
 function buildCatTabs(){
-  const counts={}; _all.forEach(f=>{const c=catFor(f.name);counts[c]=(counts[c]||0)+1});
+  const counts={};_all.forEach(f=>{const c=catFor(f.name);counts[c]=(counts[c]||0)+1});
   let html=`<button class="ctab${_cat===null?' on':''}" onclick="setCat(null)">all <span class="n">${_all.length}</span></button>`;
   for(const cat of CATS){if(!counts[cat.id])continue;html+=`<button class="ctab${_cat===cat.id?' on':''}" onclick="setCat('${cat.id}')">${cat.label} <span class="n">${counts[cat.id]}</span></button>`}
   if(counts.other)html+=`<button class="ctab${_cat==='other'?' on':''}" onclick="setCat('other')">other <span class="n">${counts.other}</span></button>`;
@@ -685,7 +738,7 @@ function buildCatTabs(){
 }
 function setCat(c){_cat=c;buildCatTabs();render()}
 
-// ─── Sort ──────────────────────────────────────────────────────────────────────
+// ── Sort ──────────────────────────────────────────────────────────────────────
 const SORT_OPTS=[{col:'mtime',label:'date'},{col:'name',label:'name'},{col:'size',label:'size'},{col:'ext',label:'type'}];
 function buildSortMenu(){
   const dd=document.getElementById('sort-dropdown');
@@ -700,7 +753,7 @@ function toggleSortMenu(){
 }
 function setSort(col,e){if(e)e.stopPropagation();_sort={col,dir:_sort.col===col?-_sort.dir:-1};buildSortMenu();render()}
 
-// ─── Render ───────────────────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────────
 function render(){
   const q=document.getElementById('q').value.toLowerCase().trim();
   let rows=_all.filter(f=>(_cat?catFor(f.name)===_cat:true)&&(!q||f.name.toLowerCase().includes(q)));
@@ -719,14 +772,15 @@ function render(){
   const frag=document.createDocumentFragment();
   if(!q){
     if(_path){
-      const parentPath=_path.includes('/')?_path.slice(0,_path.lastIndexOf('/')):'';
-      const up=mkRow(`<div class="fname-cell"><div class="file-badge fb-dir" style="opacity:.5">${FOLDER_SVG}</div><div class="fname-info"><div class="fname-main" style="color:var(--sub)">..</div><div class="fname-sub">parent folder</div></div></div><div class="fsize">—</div><div class="fdate">—</div><div class="fact"></div>`,'dir-row');
-      up.addEventListener('click',()=>load(parentPath)); frag.appendChild(up);
+      const parentPath=_path.includes('/')?_path.slice(0,_path.lastIndexOf('/')):''
+      const up=mkRow(`<div class="fname-cell"><div class="file-badge fb-dir" style="opacity:.45">${FOLDER_SVG}</div><div class="fname-info"><div class="fname-main" style="color:var(--sub)">..</div><div class="fname-sub">parent folder</div></div></div><div class="fsize">—</div><div class="fdate">—</div><div class="fact"></div>`,'dir-row');
+      up.addEventListener('click',()=>load(parentPath));frag.appendChild(up);
     }
     _dirs.forEach(d=>{
       const sub=_path?_path+'/'+d.name:d.name;
       const row=mkRow(`<div class="fname-cell"><div class="file-badge fb-dir">${FOLDER_SVG}</div><div class="fname-info"><div class="fname-main">${esc(d.name)}</div><div class="fname-sub">directory</div><div class="fname-meta">${fdate(d.mtime)}</div></div></div><div class="fsize">—</div><div class="fdate">${fdate(d.mtime)}</div><div class="fact"><button class="more-btn" title="Options">⋯</button></div>`,'dir-row');
       row.addEventListener('click',e=>{if(e.target.closest('.more-btn'))return;load(sub)});
+      // FIX: stopPropagation so clicking more-btn doesn't highlight/select the row
       row.querySelector('.more-btn').addEventListener('click',e=>{e.stopPropagation();showCtx(e,dirCtxItems(d))});
       row.addEventListener('contextmenu',e=>showCtx(e,dirCtxItems(d)));
       frag.appendChild(row);
@@ -737,20 +791,18 @@ function render(){
     const ownerEl=f.owner&&_isAdmin?`<span class="owner-tag">${esc(f.owner)}</span>`:'';
     const row=mkRow(`<div class="fname-cell"><div class="file-badge ${cls}">${lbl}</div><div class="fname-info"><div class="fname-main" title="${esc(f.name)}">${esc(f.name)}</div><div class="fname-sub">.${esc(gext(f.name)||'—')}${ownerEl}</div><div class="fname-meta">${fsize(f.size)} · ${fdate(f.mtime)}</div></div></div><div class="fsize">${fsize(f.size)}</div><div class="fdate">${fdate(f.mtime)}</div><div class="fact"><button class="more-btn" title="Options">⋯</button></div>`);
     row.addEventListener('click',e=>{if(e.target.closest('.more-btn'))return;openPreview(rel,f.name)});
+    // FIX: stopPropagation prevents row hover/selection highlight when clicking 3-dot
     row.querySelector('.more-btn').addEventListener('click',e=>{e.stopPropagation();showCtx(e,fileCtxItems(f))});
     row.addEventListener('contextmenu',e=>showCtx(e,fileCtxItems(f)));
     frag.appendChild(row);
   });
-  wrap.innerHTML=''; wrap.appendChild(frag);
+  wrap.innerHTML='';wrap.appendChild(frag);
 }
-function mkRow(inner,extra=''){
-  const d=document.createElement('div');
-  d.className='frow'+(extra?' '+extra:''); d.innerHTML=inner; return d;
-}
+function mkRow(inner,extra=''){const d=document.createElement('div');d.className='frow'+(extra?' '+extra:'');d.innerHTML=inner;return d;}
 document.getElementById('q').addEventListener('input',render);
 document.querySelectorAll('.th[data-col]').forEach(th=>th.addEventListener('click',()=>setSort(th.dataset.col)));
 
-// ─── Panel ────────────────────────────────────────────────────────────────────
+// ── Panel ─────────────────────────────────────────────────────────────────────
 function openPanel(){
   document.getElementById('side-panel').classList.add('open');
   document.getElementById('side-overlay').classList.add('open');
@@ -762,12 +814,12 @@ function closePanel(){
   document.getElementById('side-overlay').classList.remove('open');
 }
 
-// ─── Modals ───────────────────────────────────────────────────────────────────
+// ── Modals ────────────────────────────────────────────────────────────────────
 function openModal(id){document.getElementById(id+'-overlay').style.display=''}
 function closeModal(id){document.getElementById(id+'-overlay').style.display='none'}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePreview();['rename','mkdir','move','share','editor','acct'].forEach(closeModal)}});
 
-// ─── Actions ──────────────────────────────────────────────────────────────────
+// ── Actions ───────────────────────────────────────────────────────────────────
 async function copyLink(rel){
   try{
     const r=await fetch('/token/'+rel.split('/').map(encodeURIComponent).join('/'));
@@ -780,25 +832,19 @@ async function copyLink(rel){
 function dlFile(rel,name){
   const a=document.createElement('a');
   a.href='/dl/'+rel.split('/').map(encodeURIComponent).join('/'); a.download=name;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast('downloading: '+(name.length>40?name.slice(0,40)+'…':name));
 }
 function zipFolder(rel,name){
   const a=document.createElement('a');
   a.href='/zip?path='+encodeURIComponent(rel); a.download=name+'.zip';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
   toast('zipping: '+name+'…');
 }
 function confirmDelete(rel,name,btn){
-  if(!btn){
-    if(!confirm(`Delete "${name}"?`))return;
-    doDelete(rel,name); return;
-  }
-  if(!btn.dataset.armed){
-    btn.dataset.armed='1'; toast('click again to confirm delete',2500);
-    setTimeout(()=>delete btn.dataset.armed,3000); return;
-  }
-  delete btn.dataset.armed; doDelete(rel,name);
+  if(!btn){if(!confirm(`Delete "${name}"?`))return;doDelete(rel,name);return;}
+  if(!btn.dataset.armed){btn.dataset.armed='1';toast('click again to confirm delete',2500);setTimeout(()=>delete btn.dataset.armed,3000);return;}
+  delete btn.dataset.armed;doDelete(rel,name);
 }
 async function doDelete(rel,name){
   const r=await fetch('/files/'+rel.split('/').map(encodeURIComponent).join('/'),{method:'DELETE'});
@@ -806,13 +852,13 @@ async function doDelete(rel,name){
   else{const d=await r.json().catch(()=>({}));toastErr(d.error||'delete failed')}
 }
 
-// ─── Rename modal ──────────────────────────────────────────────────────────────
+// ── Rename modal ──────────────────────────────────────────────────────────────
 let _renameRel=null;
 function openRenameModal(rel,name){
   _renameRel=rel;
-  const inp=document.getElementById('rename-input'); inp.value=name;
+  const inp=document.getElementById('rename-input');inp.value=name;
   document.getElementById('rename-error').style.display='none';
-  openModal('rename'); setTimeout(()=>{inp.focus();inp.select()},60);
+  openModal('rename');setTimeout(()=>{inp.focus();inp.select()},60);
 }
 async function submitRename(){
   const name=document.getElementById('rename-input').value.trim();
@@ -825,11 +871,11 @@ async function submitRename(){
 }
 document.getElementById('rename-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitRename();if(e.key==='Escape')closeModal('rename')});
 
-// ─── Mkdir modal ───────────────────────────────────────────────────────────────
+// ── Mkdir modal ───────────────────────────────────────────────────────────────
 function openMkdirModal(){
   document.getElementById('mkdir-input').value='';
   document.getElementById('mkdir-error').style.display='none';
-  openModal('mkdir'); setTimeout(()=>document.getElementById('mkdir-input').focus(),60);
+  openModal('mkdir');setTimeout(()=>document.getElementById('mkdir-input').focus(),60);
 }
 async function submitMkdir(){
   const name=document.getElementById('mkdir-input').value.trim();
@@ -842,27 +888,76 @@ async function submitMkdir(){
 }
 document.getElementById('mkdir-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitMkdir();if(e.key==='Escape')closeModal('mkdir')});
 
-// ─── Move/copy modal ───────────────────────────────────────────────────────────
-let _moveRel=null, _moveCopy=false;
-function openMoveModal(rel,name,copy){
+// ── Move/Copy folder picker ────────────────────────────────────────────────────
+let _moveRel=null, _moveCopy=false, _fpPath='', _fpSelected='';
+async function openMoveModal(rel,name,copy){
   _moveRel=rel; _moveCopy=copy;
-  document.getElementById('move-title').textContent=(copy?'Copy':'Move')+': '+name;
+  _fpSelected='';
+  document.getElementById('move-title').textContent=(copy?'copy':'move')+': '+name;
   document.getElementById('move-submit-btn').textContent=copy?'Copy here':'Move here';
-  document.getElementById('move-input').value='';
   document.getElementById('move-error').style.display='none';
-  openModal('move'); setTimeout(()=>document.getElementById('move-input').focus(),60);
+  // start from current directory
+  _fpPath=_path||'';
+  await fpLoad(_fpPath);
+  openModal('move');
+}
+async function fpLoad(path){
+  _fpPath=path;
+  const upBtn=document.getElementById('fp-up-btn');
+  upBtn.disabled=!path;
+  document.getElementById('fp-path').textContent=path?('~/'+path):'~ (root)';
+  document.getElementById('fp-dest-text').textContent=path||'root';
+  const list=document.getElementById('fp-list');
+  list.innerHTML='<div class="fp-empty">loading…</div>';
+  try{
+    const r=await fetch('/files'+(path?'?path='+encodeURIComponent(path):''));
+    const data=await r.json();
+    const dirs=data.dirs||[];
+    if(!dirs.length){list.innerHTML='<div class="fp-empty">no subfolders here</div>';return;}
+    list.innerHTML=dirs.map(d=>`<div class="fp-item" data-name="${esc(d.name)}" onclick="fpSelect('${esc(d.name)}',this)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><span class="fp-item-name">${esc(d.name)}</span><span class="fp-item-arrow">→</span></div>`).join('');
+    // double-click navigates in
+    list.querySelectorAll('.fp-item').forEach(el=>{
+      el.addEventListener('dblclick',()=>fpNav(_fpPath?_fpPath+'/'+el.dataset.name:el.dataset.name));
+    });
+  }catch{list.innerHTML='<div class="fp-empty">error loading</div>'}
+}
+function fpSelect(name,el){
+  // single click: select this folder as destination
+  document.querySelectorAll('.fp-item.selected').forEach(e=>e.classList.remove('selected'));
+  el.classList.add('selected');
+  const dest=_fpPath?_fpPath+'/'+name:name;
+  _fpSelected=dest;
+  document.getElementById('fp-dest-text').textContent=dest;
+}
+async function fpNav(path){
+  // navigate into folder; clear selection
+  _fpSelected=path;
+  document.getElementById('fp-dest-text').textContent=path||'root';
+  await fpLoad(path);
+}
+function fpUp(){
+  const parts=_fpPath.split('/').filter(Boolean);
+  parts.pop();
+  fpNav(parts.join('/'));
+}
+async function fpNewFolder(){
+  const name=prompt('New folder name:'); if(!name||!name.trim())return;
+  const r=await fetch('/mkdir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:_fpPath||'',name:name.trim()})});
+  if(r.ok){toast('created: '+name);await fpLoad(_fpPath);}
+  else{const d=await r.json().catch(()=>({}));toastErr(d.error||'create failed')}
 }
 async function submitMove(){
-  const dst=document.getElementById('move-input').value.trim();
   const errEl=document.getElementById('move-error');
   if(!_moveRel)return;
-  const r=await fetch('/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:_moveRel,dst_dir:dst||'',copy:_moveCopy})});
+  // _fpSelected is the destination; '' means root
+  const dst=document.getElementById('fp-dest-text').textContent==='root'?'':_fpSelected;
+  const r=await fetch('/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({src:_moveRel,dst_dir:dst,copy:_moveCopy})});
   const d=await r.json();
   if(r.ok){toast((_moveCopy?'copied':'moved')+': '+d.name);closeModal('move');load()}
   else{errEl.textContent=d.error||'operation failed';errEl.style.display=''}
 }
 
-// ─── Share modal ────────────────────────────────────────────────────────────────
+// ── Share modal ───────────────────────────────────────────────────────────────
 let _shareRel=null;
 function openShareModal(rel){
   _shareRel=rel;
@@ -886,13 +981,13 @@ async function submitShare(){
   }else{errEl.textContent=d.error||'failed';errEl.style.display=''}
 }
 
-// ─── Text editor modal ──────────────────────────────────────────────────────────
+// ── Text editor modal ─────────────────────────────────────────────────────────
 let _editorRel=null;
 async function openEditor(rel,name){
   _editorRel=rel;
-  document.getElementById('editor-title').textContent='Edit: '+name;
+  document.getElementById('editor-title').textContent='edit: '+name;
   document.getElementById('editor-error').style.display='none';
-  document.getElementById('editor-textarea').value='Loading…';
+  document.getElementById('editor-textarea').value='loading…';
   openModal('editor');
   const r=await fetch('/edit/'+rel.split('/').map(encodeURIComponent).join('/'));
   const d=await r.json();
@@ -908,7 +1003,7 @@ async function submitEdit(){
   else{errEl.textContent=d.error||'save failed';errEl.style.display=''}
 }
 
-// ─── Upload ────────────────────────────────────────────────────────────────────
+// ── Upload ────────────────────────────────────────────────────────────────────
 document.getElementById('file-input').addEventListener('change',e=>{uploadFiles(Array.from(e.target.files));e.target.value=''});
 const _drop=document.getElementById('upload-drop');
 _drop.addEventListener('dragover',e=>{e.preventDefault();_drop.classList.add('drag-over')});
@@ -920,22 +1015,22 @@ async function uploadFiles(files){
   if(!files.length)return;
   const list=document.getElementById('upload-list');
   for(const file of files){
-    const item=document.createElement('div'); item.className='upload-item';
-    const nameEl=document.createElement('div'); nameEl.className='upload-iname'; nameEl.textContent=file.name;
-    const track=document.createElement('div'); track.className='upload-track';
-    const bar=document.createElement('div'); bar.className='upload-bar'; track.appendChild(bar);
-    const status=document.createElement('div'); status.className='upload-status';
-    const pctEl=document.createElement('span'); pctEl.className='upload-pct'; pctEl.textContent='0%';
-    const spdEl=document.createElement('span'); spdEl.className='upload-speed';
-    const etaEl=document.createElement('span'); etaEl.className='upload-eta';
-    const sizeEl=document.createElement('div'); sizeEl.className='upload-size'; sizeEl.textContent='0 B / '+fsize(file.size);
-    status.append(pctEl,spdEl,etaEl); item.append(nameEl,track,status,sizeEl); list.appendChild(item);
+    const item=document.createElement('div');item.className='upload-item';
+    const nameEl=document.createElement('div');nameEl.className='upload-iname';nameEl.textContent=file.name;
+    const track=document.createElement('div');track.className='upload-track';
+    const bar=document.createElement('div');bar.className='upload-bar';track.appendChild(bar);
+    const status=document.createElement('div');status.className='upload-status';
+    const pctEl=document.createElement('span');pctEl.className='upload-pct';pctEl.textContent='0%';
+    const spdEl=document.createElement('span');spdEl.className='upload-speed';
+    const etaEl=document.createElement('span');etaEl.className='upload-eta';
+    const sizeEl=document.createElement('div');sizeEl.className='upload-size';sizeEl.textContent='0 B / '+fsize(file.size);
+    status.append(pctEl,spdEl,etaEl);item.append(nameEl,track,status,sizeEl);list.appendChild(item);
     await new Promise(res=>{
-      const xhr=new XMLHttpRequest(); let last=0,lt=0;
+      const xhr=new XMLHttpRequest();let last=0,lt=0;
       xhr.upload.onloadstart=()=>{lt=performance.now()};
       xhr.upload.onprogress=e=>{
         if(!e.lengthComputable)return;
-        const pct=e.loaded/e.total; bar.style.width=(pct*100).toFixed(1)+'%'; pctEl.textContent=Math.round(pct*100)+'%';
+        const pct=e.loaded/e.total;bar.style.width=(pct*100).toFixed(1)+'%';pctEl.textContent=Math.round(pct*100)+'%';
         sizeEl.textContent=fsize(e.loaded)+' / '+fsize(e.total);
         const now=performance.now(),dt=(now-lt)/1000;
         if(dt>=0.4){const spd=(e.loaded-last)/dt;spdEl.textContent=fspd(spd);etaEl.textContent=spd>0?'ETA '+feta(Math.round((e.total-e.loaded)/spd)):'';last=e.loaded;lt=now}
@@ -946,15 +1041,15 @@ async function uploadFiles(files){
         res();
       };
       xhr.onerror=()=>{bar.classList.add('failed');item.classList.add('failed');pctEl.textContent='✕';sizeEl.textContent='network error';res()};
-      const form=new FormData(); form.append('file',file);
-      xhr.open('POST',_path?'/upload?path='+encodeURIComponent(_path):'/upload'); xhr.send(form);
+      const form=new FormData();form.append('file',file);
+      xhr.open('POST',_path?'/upload?path='+encodeURIComponent(_path):'/upload');xhr.send(form);
     });
   }
 }
 
-// ─── Torrent ───────────────────────────────────────────────────────────────────
+// ── Torrent ───────────────────────────────────────────────────────────────────
 async function submitTorrent(){
-  const uri=document.getElementById('torrent-uri').value.trim(); if(!uri)return;
+  const uri=document.getElementById('torrent-uri').value.trim();if(!uri)return;
   const r=await fetch('/torrent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uri})});
   const d=await r.json();
   if(r.ok){toast('torrent started');document.getElementById('torrent-uri').value='';pollProgress()}
@@ -967,15 +1062,15 @@ _tdrop.addEventListener('drop',e=>{e.preventDefault();_tdrop.classList.remove('d
 document.getElementById('torrent-file-input').addEventListener('change',e=>{const f=e.target.files[0];if(f)submitTorrentFile(f);e.target.value=''});
 async function submitTorrentFile(file){
   if(!file.name.endsWith('.torrent')){toastErr('not a .torrent file');return}
-  const form=new FormData(); form.append('file',file);
+  const form=new FormData();form.append('file',file);
   const r=await fetch('/torrent',{method:'POST',body:form});
   const d=await r.json();
   if(r.ok){toast('torrent started');pollProgress()}else toastErr(d.error||'failed');
 }
 
-// ─── Fetch URL ─────────────────────────────────────────────────────────────────
+// ── Fetch URL ─────────────────────────────────────────────────────────────────
 async function submitFetch(){
-  const url=document.getElementById('fetch-url-input').value.trim(); if(!url)return;
+  const url=document.getElementById('fetch-url-input').value.trim();if(!url)return;
   const r=await fetch('/fetch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
   const d=await r.json();
   if(r.ok){toast('fetch started: '+d.name);document.getElementById('fetch-url-input').value='';pollProgress()}
@@ -983,7 +1078,7 @@ async function submitFetch(){
 }
 document.getElementById('fetch-url-input').addEventListener('keydown',e=>{if(e.key==='Enter')submitFetch()});
 
-// ─── Progress jobs ─────────────────────────────────────────────────────────────
+// ── Progress jobs ─────────────────────────────────────────────────────────────
 const _dismissed=new Set();
 async function pollProgress(){
   if(!_canWrite)return;
@@ -999,49 +1094,34 @@ async function pollProgress(){
   }catch{}
 }
 function renderJobs(jobs,elId,type){
-  const el=document.getElementById(elId); if(!el)return;
+  const el=document.getElementById(elId);if(!el)return;
   const entries=Object.entries(jobs).filter(([id])=>!_dismissed.has(type+':'+id));
   if(!entries.length){el.innerHTML='';return}
   const frag=document.createDocumentFragment();
   entries.forEach(([id,j])=>{
     const done=['done','failed','cancelled'].includes(j.status);
-    const item=document.createElement('div'); item.className='job-item';
-    const pct=j.progress||0; const spdStr=j.speed_str||(j.speed?fspd(j.speed):''); const etaStr=j.eta_str||(j.eta>=0?feta(j.eta):'');
+    const item=document.createElement('div');item.className='job-item';
+    const pct=j.progress||0;const spdStr=j.speed_str||(j.speed?fspd(j.speed):'');const etaStr=j.eta_str||(j.eta>=0?feta(j.eta):'');
     const sizeStr=j.done_str&&j.total_str?j.done_str+' / '+j.total_str:j.done_str||j.total_str||'';
     item.innerHTML=`<div class="job-head"><span class="job-name" title="${esc(j.name||'')}">${esc((j.name||'').slice(0,35))}</span><span class="job-status js-${j.status||'starting'}">${j.status}</span>${done?`<button class="job-btn-dismiss" onclick="_dismissed.add('${type}:${id}');this.closest('.job-item').remove()">×</button>`:''}</div><div class="job-track"><div class="job-bar${j.status==='done'?' done':j.status==='failed'?' failed':''}" style="width:${pct}%"></div></div><div class="job-meta"><span class="job-pct">${pct}%</span>${spdStr?`<span>${esc(spdStr)}</span>`:''} ${etaStr?`<span>ETA ${esc(etaStr)}</span>`:''} ${sizeStr?`<span>${esc(sizeStr)}</span>`:''}</div>${j.error?`<div class="job-error">✕ ${esc(j.error.slice(0,120))}</div>`:''}<div class="job-actions">${!done?`<button class="job-btn job-btn-cancel" onclick="cancelJob('${type}','${id}')">cancel</button>`:''}${type==='fetch'&&['failed','cancelled'].includes(j.status)?`<button class="job-btn job-btn-retry" onclick="retryFetch('${id}')">retry</button>`:''}</div>`;
     frag.appendChild(item);
   });
-  el.innerHTML=''; el.appendChild(frag);
+  el.innerHTML='';el.appendChild(frag);
 }
 async function cancelJob(type,id){await fetch(`/${type}/${id}/cancel`,{method:'POST'});toast('cancelled');pollProgress()}
 async function retryFetch(id){const r=await fetch(`/fetch/${id}/retry`,{method:'POST'});const d=await r.json();if(r.ok){toast('retry started');pollProgress()}else toastErr(d.error||'retry failed')}
 
-// ─── Admin flags ───────────────────────────────────────────────────────────────
-async function toggleFlag(key,btn){
-  const newVal=!btn.classList.contains('on');
-  const r=await fetch('/flags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:newVal})});
-  if(r.ok){btn.classList.toggle('on',newVal);toast(key+(newVal?' enabled':' disabled'))}
-  else toastErr('failed to toggle');
-}
-async function toggleRegFlag(btn){
-  const r=await fetch('/flags');const flags=await r.json();
-  const newVal=!flags.registration_open;
-  const r2=await fetch('/flags',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({registration_open:newVal})});
-  if(r2.ok){btn.classList.toggle('on',newVal);toast(newVal?'registration open':'registration closed')}
-}
+// ── Admin user management ─────────────────────────────────────────────────────
 async function loadUserList(){
   if(!_isAdmin)return;
   const[r,r2]=await Promise.all([fetch('/admin/users'),fetch('/flags')]).catch(()=>[]);
   if(!r||!r.ok)return;
-  const users=await r.json(); const flags=await r2.json();
-  document.getElementById('reg-toggle').classList.toggle('on',!!flags.registration_open);
-  document.getElementById('torrent-toggle').classList.toggle('on',!!flags.torrent_enabled);
+  const users=await r.json();
   const list=document.getElementById('user-list');
   let html='';
   for(const[name,info]of Object.entries(users)){
     if(info.role==='admin')continue;
-    const safeN=name.replace(/'/g,"\\'");
-    html+=`<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid var(--border-faint)${info.disabled?';opacity:.5':''}"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span><button class="more-btn" style="width:22px;height:22px;font-size:12px" data-uname="${esc(name)}" data-udis="${info.disabled?1:0}">⋯</button></div>`;
+    html+=`<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid var(--border-faint)${info.disabled?';opacity:.5':''}"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</span><button class="more-btn" style="width:20px;height:20px;font-size:11px" data-uname="${esc(name)}" data-udis="${info.disabled?1:0}">⋯</button></div>`;
   }
   list.innerHTML=html||'<span style="color:var(--muted)">no users</span>';
   list.querySelectorAll('[data-uname]').forEach(btn=>{
@@ -1059,37 +1139,16 @@ function adminUserMenu(e,name,disabled){
     {label:'Delete user',danger:true,fn:()=>deleteUser(name)},
   ]);
 }
-async function promptUserPw(name){
-  const pw=prompt(`New password for "${name}" (min 6 chars):`); if(!pw)return;
-  if(pw.length<6){toastErr('password too short');return}
-  const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
-  if(r.ok)toast('password changed for '+name);else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}
-}
-async function toggleUserDisabled(name,disable){
-  const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({disabled:disable})});
-  if(r.ok){toast(disable?name+' disabled':name+' enabled');loadUserList()}else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}
-}
-async function promoteUser(name){
-  if(!confirm(`Promote "${name}" to admin?`))return;
-  const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'admin'})});
-  if(r.ok){toast(name+' promoted');loadUserList()}else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}
-}
-async function resetUserSession(name){
-  if(!confirm(`Kill all sessions for "${name}"?`))return;
-  const r=await fetch('/admin/users/'+encodeURIComponent(name)+'/reset',{method:'POST'});
-  const d=await r.json().catch(()=>({}));
-  if(r.ok)toast('killed '+d.killed+' session(s)');else toastErr(d.error||'failed');
-}
-async function deleteUser(name){
-  if(!confirm(`Remove user "${name}"?`))return;
-  const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'DELETE'});
-  if(r.ok){toast('user removed');loadUserList()}else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}
-}
+async function promptUserPw(name){const pw=prompt(`New password for "${name}" (min 6 chars):`);if(!pw)return;if(pw.length<6){toastErr('password too short');return}const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});if(r.ok)toast('password changed for '+name);else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}}
+async function toggleUserDisabled(name,disable){const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({disabled:disable})});if(r.ok){toast(disable?name+' disabled':name+' enabled');loadUserList()}else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}}
+async function promoteUser(name){if(!confirm(`Promote "${name}" to admin?`))return;const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'admin'})});if(r.ok){toast(name+' promoted');loadUserList()}else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}}
+async function resetUserSession(name){if(!confirm(`Kill all sessions for "${name}"?`))return;const r=await fetch('/admin/users/'+encodeURIComponent(name)+'/reset',{method:'POST'});const d=await r.json().catch(()=>({}));if(r.ok)toast('killed '+d.killed+' session(s)');else toastErr(d.error||'failed');}
+async function deleteUser(name){if(!confirm(`Remove user "${name}"?`))return;const r=await fetch('/admin/users/'+encodeURIComponent(name),{method:'DELETE'});if(r.ok){toast('user removed');loadUserList()}else{const d=await r.json().catch(()=>({}));toastErr(d.error||'failed')}}
 
-// ─── Account modal ─────────────────────────────────────────────────────────────
+// ── Account modal ─────────────────────────────────────────────────────────────
 function openAcctModal(){
-  document.getElementById('acct-title').textContent=_isAdmin?'Admin account':'Account';
-  document.getElementById('acct-info').textContent='Signed in as: '+(_username||'unknown');
+  document.getElementById('acct-title').textContent=_isAdmin?'admin account':'account';
+  document.getElementById('acct-info').textContent='signed in as: '+(_username||'unknown');
   document.getElementById('acct-avatar-section').style.display=_isAdmin?'':'none';
   document.getElementById('acct-switch-section').style.display=_isAdmin?'none':'';
   document.getElementById('acct-error').style.display='none';
@@ -1098,27 +1157,25 @@ function openAcctModal(){
   if(!_isAdmin)setTimeout(()=>document.getElementById('acct-pw').focus(),80);
 }
 async function submitSuSwitch(){
-  const pw=document.getElementById('acct-pw').value; if(!pw)return;
-  const errEl=document.getElementById('acct-error'); errEl.style.display='none';
-  const form=new FormData(); form.append('username','admin'); form.append('pass',pw);
+  const pw=document.getElementById('acct-pw').value;if(!pw)return;
+  const errEl=document.getElementById('acct-error');errEl.style.display='none';
+  const form=new FormData();form.append('username','admin');form.append('pass',pw);
   const r=await fetch('/login',{method:'POST',body:form,redirect:'manual'}).catch(()=>null);
   if(!r||r.type==='opaqueredirect'||r.status===0||r.ok){closeModal('acct');location.reload()}
   else{errEl.style.display='';document.getElementById('acct-pw').select()}
 }
 document.getElementById('acct-pw').addEventListener('keydown',e=>{if(e.key==='Enter')submitSuSwitch();if(e.key==='Escape')closeModal('acct')});
 async function uploadAvatar(input){
-  const file=input.files[0]; if(!file)return;
-  const form=new FormData(); form.append('file',file);
+  const file=input.files[0];if(!file)return;
+  const form=new FormData();form.append('file',file);
   const r=await fetch('/admin/avatar',{method:'POST',body:form});
   const d=await r.json();
   if(r.ok){_avatar=d.avatar;_updateUserBtn();toast('avatar updated');closeModal('acct')}
   else toastErr(d.error||'avatar upload failed');
 }
-async function doLogout(){
-  await fetch('/logout',{method:'POST'}); location.href='/';
-}
+async function doLogout(){await fetch('/logout',{method:'POST'});location.href='/';}
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 _path=new URLSearchParams(location.search).get('p')||'';
 load();
 setInterval(load,30000);

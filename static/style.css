@@ -1,32 +1,45 @@
 :root {
-  --bg: #0f0f11;
-  --surface: #18181b;
-  --surface-2: #222226;
-  --border: #2a2a2f;
-  --border-faint: #1e1e22;
-  --border-strong: #3a3a42;
-  --text: #e8e8ec;
-  --sub: #a0a0b0;
-  --muted: #565660;
-  --accent: #7c6ef0;
-  --green: #22c55e;
-  --red: #ef4444;
+  --bg:        #0c0c0e;
+  --surface:   #111114;
+  --surface-2: #18181c;
+  --surface-3: #1e1e23;
+  --border:    #252529;
+  --border-faint: #1a1a1e;
+  --border-strong: #333340;
+  --text:      #e2e2ea;
+  --sub:       #8888a0;
+  --muted:     #44445a;
+  --accent:    #e8613a;
+  --accent-dim: color-mix(in srgb, var(--accent) 12%, transparent);
+  --green:     #3dd68c;
+  --red:       #f05252;
+  --yellow:    #f5a623;
+  --blue:      #5b9cf6;
+  --mono:      'JetBrains Mono', 'Fira Code', monospace;
+  --sans:      'DM Sans', system-ui, sans-serif;
+  --radius:    4px;
+  --radius-sm: 3px;
 }
 [data-theme="light"] {
-  --bg: #fafafa;
-  --surface: #f1f1f3;
-  --surface-2: #e8e8ec;
-  --border: #dddde5;
-  --border-faint: #ececf0;
-  --border-strong: #c5c5d0;
-  --text: #111118;
-  --sub: #555568;
-  --muted: #9999aa;
-  --accent: #5b4fe0;
-  --green: #16a34a;
-  --red: #dc2626;
+  --bg:        #f4f4f7;
+  --surface:   #eaeaef;
+  --surface-2: #dfdfe8;
+  --surface-3: #d4d4e0;
+  --border:    #c8c8d8;
+  --border-faint: #dcdce8;
+  --border-strong: #adadc4;
+  --text:      #0e0e16;
+  --sub:       #545468;
+  --muted:     #9090a8;
+  --accent:    #d04a22;
+  --green:     #198754;
+  --red:       #d03030;
+  --yellow:    #b87a00;
+  --blue:      #2255d0;
 }
-::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sub); }
